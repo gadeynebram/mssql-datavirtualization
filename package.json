@@ -117,7 +117,7 @@
     "rxjs": "5.4.0",
     "sanitize-html": "1.19.1",
     "semver-umd": "^5.5.7",
-    "slickgrid": "github:Microsoft/SlickGrid.ADS#2.3.45",
+    "slickgrid": "github:Microsoft/SlickGrid.ADS#2.3.50",
     "tas-client-umd": "0.1.8",
     "turndown": "^7.0.0",
     "turndown-plugin-gfm": "^1.0.2",
@@ -277,9 +277,9 @@
     "windows-foreground-love": "0.5.0"
   },
   "resolutions": {
-    "elliptic": "^6.5.3",
     "nwmatcher": "^1.4.4",
     "gridstack/node-sass": "^7.0.0",
-    "node-sass": "^7.0.0"
+    "node-sass": "^7.0.0",
+    "tar-fs": "^2.1.3"
   }
 }
