@@ -34,7 +34,66 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage('Geen connectie geselecteerd.');
       return;
     }
-    vscode.window.showInformationMessage(`Geselecteerde connectie: ${connection.server} (${connection.database})`);
+    vscode.window.showInformationMessage(`Geselecteerde connectie: ${connection.server}`);
+
+    // Stap: Database kiezen
+    let connectionUri: string;
+    try {
+      connectionUri = await api.connect(connection);
+      const databases = await api.listDatabases(connectionUri);
+      if (!databases || databases.length === 0) {
+        vscode.window.showInformationMessage('Geen databases gevonden.');
+        return;
+      }
+      const dbPick = await vscode.window.showQuickPick(databases, { placeHolder: 'Selecteer een database' });
+      if (!dbPick) {
+        vscode.window.showInformationMessage('Geen database geselecteerd.');
+        return;
+      }
+      connection.database = dbPick;
+      vscode.window.showInformationMessage(`Geselecteerde database: ${dbPick}`);
+    } catch (err) {
+      console.error('Fout bij ophalen databases:', err);
+      vscode.window.showErrorMessage('Fout bij ophalen databases: ' + err);
+      return;
+    }
+
+    // Stap: External Data Sources ophalen uit gekozen database
+    try {
+      // Herconnect met gekozen database
+      vscode.window.showInformationMessage(`Verbinden met database`);
+      connectionUri = await api.connect(connection);
+      const query = 'SELECT name, type, location FROM sys.external_data_sources order by name';
+
+      const conn = api.connectionSharing;
+      if(!conn){
+        console.error('Fout bij ophalen IConnectionSharingService');
+        vscode.window.showErrorMessage('Fout bij ophalen IConnectionSharingService');
+        return ;
+      }
+
+      const result = await conn.executeSimpleQuery(connectionUri, query);
+      const sources = result.rows
+      if (sources.length === 0) {
+        console.log('Geen external data sources gevonden.');
+        vscode.window.showInformationMessage('Geen external data sources gevonden.');
+        return;
+      }
+      // Toon in QuickPick
+      const items = sources.map((row: any) => row[0].displayValue);
+      const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Selecteer een external data source' });
+      if (pick) {
+        console.log('Geselecteerde data source:', pick);
+        vscode.window.showInformationMessage(`Geselecteerde data source: ${pick}`);
+      } else {
+        console.log('Geen data source geselecteerd.');
+        vscode.window.showInformationMessage('Geen data source geselecteerd.');
+      }
+    } catch (err) {
+      console.error('Fout bij ophalen external data sources:', err);
+      vscode.window.showErrorMessage('Fout bij ophalen external data sources: ' + err);
+      return;
+    }
   });
   context.subscriptions.push(disposable);
 }
