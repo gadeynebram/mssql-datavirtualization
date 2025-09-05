@@ -85,6 +85,39 @@ export function activate(context: vscode.ExtensionContext) {
       if (pick) {
         console.log('Geselecteerde data source:', pick);
         vscode.window.showInformationMessage(`Geselecteerde data source: ${pick}`);
+
+        // Stap: tabellen/views ophalen uit gekozen external data source
+        try {
+          // Query alle tabellen/views uit sys.external_tables die bij de gekozen data source horen
+          const tablesQuery = `SELECT t.name, s.name AS schema_name
+            FROM sys.external_tables t
+            JOIN sys.schemas s ON t.schema_id = s.schema_id
+            WHERE t.data_source_id = (SELECT data_source_id FROM sys.external_data_sources WHERE name = @dataSourceName)
+            order by s.name, t.name`;
+          const tablesResult = await conn.executeSimpleQuery(connectionUri, tablesQuery.replace('@dataSourceName', `'${pick}'`));
+          const tables = tablesResult?.rows || [];
+          if (tables.length === 0) {
+            vscode.window.showInformationMessage('Geen tabellen/views gevonden voor deze data source.');
+            return;
+          }
+          // Toon tabellen/views in multiselect QuickPick
+          const tableItems = tables.map((row: any) => `${row[1].displayValue}.${row[0].displayValue}`); // schema.table
+          const selectedTables = await vscode.window.showQuickPick(tableItems, {
+            placeHolder: 'Selecteer één of meerdere tabellen/views',
+            canPickMany: true
+          });
+          if (selectedTables && selectedTables.length > 0) {
+            console.log('Geselecteerde tabellen/views:', selectedTables);
+            vscode.window.showInformationMessage(`Geselecteerde tabellen/views: ${selectedTables.join(', ')}`);
+          } else {
+            console.log('Geen tabellen/views geselecteerd.');
+            vscode.window.showInformationMessage('Geen tabellen/views geselecteerd.');
+          }
+        } catch (err) {
+          console.error('Fout bij ophalen tabellen/views:', err);
+          vscode.window.showErrorMessage('Fout bij ophalen tabellen/views: ' + err);
+          return;
+        }
       } else {
         console.log('Geen data source geselecteerd.');
         vscode.window.showInformationMessage('Geen data source geselecteerd.');
