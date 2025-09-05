@@ -1,0 +1,34 @@
+{
+  "name": "vscode-mssqlext",
+  "displayName": "MSSQL Data Virtualization Wizard",
+  "description": "A VS Code extension to virtualize data using MSSQL APIs.",
+  "version": "0.0.1",
+  "publisher": "gadeynebram",
+  "engines": {
+    "vscode": ">=1.70.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:vscode-mssqlext.virtualizeDataWizard"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-mssqlext.virtualizeDataWizard",
+        "title": "Virtualize Data Wizard"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.103.0",
+    "typescript": "^5.9.2"
+  }
+}
