@@ -1,23 +1,39 @@
 {
-  "name": "vscode-mssqlext",
+  "name": "mssql-datavirtualization",
   "displayName": "MSSQL Data Virtualization Wizard",
   "description": "A VS Code extension to virtualize data using MSSQL APIs.",
-  "version": "0.0.1",
-  "publisher": "gadeynebram",
+  "version": "0.1.0",
+  "publisher": "BramGadeyne",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gadeynebram/mssql-datavirtualization.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gadeynebram/mssql-datavirtualization/issues"
+  },
+  "keywords": [
+    "sql",
+    "mssql",
+    "sql server",
+    "polybase",
+    "data virtualization",
+    "external tables"
+  ],
   "engines": {
-    "vscode": ">=1.70.0"
+    "vscode": "^1.103.0"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "onCommand:vscode-mssqlext.virtualizeDataWizard"
+    "onCommand:mssql-datavirtualization.virtualizeDataWizard"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "vscode-mssqlext.virtualizeDataWizard",
+        "command": "mssql-datavirtualization.virtualizeDataWizard",
         "title": "Virtualize Data Wizard"
       }
     ]
@@ -25,10 +41,12 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.103.0",
+    "@vscode/vsce": "^3.2.1",
     "typescript": "^5.9.2"
   },
   "extensionDependencies": [

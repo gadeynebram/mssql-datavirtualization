@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      
+      - name: Get version from tag
+        id: tag_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Get package.json version
+        id: package_version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      
+      - name: Validate versions match
+        run: |
+          if [ "${{ steps.tag_version.outputs.VERSION }}" != "${{ steps.package_version.outputs.VERSION }}" ]; then
+            echo "❌ Version mismatch!"
+            echo "   Tag version: ${{ steps.tag_version.outputs.VERSION }}"
+            echo "   Package.json version: ${{ steps.package_version.outputs.VERSION }}"
+            exit 1
+          fi
+          echo "✅ Versions match: ${{ steps.tag_version.outputs.VERSION }}"
+      
+      - name: Check if pre-release
+        id: prerelease
+        run: |
+          VERSION="${{ steps.tag_version.outputs.VERSION }}"
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          if [ $((MINOR % 2)) -eq 1 ]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "✅ Pre-release version detected (odd minor: $MINOR)"
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "✅ Stable release version detected (even minor: $MINOR)"
+          fi
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Compile TypeScript
+        run: npm run compile
+      
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+      
+      - name: Package extension
+        run: vsce package -o mssql-datavirtualization-${{ steps.tag_version.outputs.VERSION }}.vsix
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: mssql-datavirtualization-${{ steps.tag_version.outputs.VERSION }}.vsix
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ steps.prerelease.outputs.IS_PRERELEASE }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

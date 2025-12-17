@@ -1,0 +1,30 @@
+# Build files
+src/**
+tsconfig.json
+.vscode/**
+.vscode-test/**
+
+# CI/CD
+.github/**
+
+# Development files
+.gitignore
+.gitattributes
+*.md
+!README.md
+
+# Node
+node_modules/**
+npm-debug.log
+yarn-error.log
+
+# TypeScript
+**/*.ts
+**/*.map
+
+# Output that should be excluded
+*.vsix
+
+# OS
+.DS_Store
+Thumbs.db

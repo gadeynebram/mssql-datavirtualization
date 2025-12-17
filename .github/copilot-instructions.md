@@ -8,8 +8,8 @@
 This is a VS Code extension for generating external tables for SQL Server PolyBase data virtualization.
 
 * **Extension Name**: MSSQL Data Virtualization Wizard
-* **Extension ID**: `gadeynebram.vscode-mssqlext`
-* **Main Command**: `vscode-mssqlext.virtualizeDataWizard` - Launches the data virtualization wizard
+* **Extension ID**: `gadeynebram.mssql-datavirtualization`
+* **Main Command**: `mssql-datavirtualization.virtualizeDataWizard` - Launches the data virtualization wizard
 * **Main Entry Point**: `src/extension.ts`
 
 ## Dependencies
