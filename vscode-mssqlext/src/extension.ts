@@ -25,6 +25,7 @@ class VirtualizationWizard implements vscode.Disposable{
   SelectedExternalDataSource: string | undefined;
   SelectedDatabase: string | undefined;
   SelectedExternalDatabases: string[] = [];
+  SelectedTablesAndViews: Array<{externalDb: string, schema: string, name: string, type: 'U' | 'V'}> = [];
   DiscoveryTables: string[] = [];
 
   /**
@@ -48,7 +49,9 @@ class VirtualizationWizard implements vscode.Disposable{
     await this.PromptExternalDatasource();
     await this.CreateDVWExternalDatabasesTable();
     await this.PromptForExternalDatabases();
-    vscode.window.showInformationMessage('Step A complete: External databases selected. Ready for validation.');
+    await this.CreateDVWDiscoveryTablesForAllExternalDatabases();
+    await this.PromptForTablesAndViews();
+    vscode.window.showInformationMessage('Step B complete: Tables/views selected. Ready for validation.');
   }
 
   private CheckMSSQLExtension(): vscode.Extension<any> {
@@ -155,8 +158,8 @@ class VirtualizationWizard implements vscode.Disposable{
     }
   }
 
-  // Step 1: Create 3 temporary external tables to sys.tables, sys.views, sys.schemas
-  private async CreateDVWDiscoveryTables(): Promise<void>{
+  // Step 1: Create 3 temporary external tables to sys.tables, sys.views, sys.schemas for a given external database
+  private async CreateDVWDiscoveryTables(externalDbName: string): Promise<void>{
     if(!this.ConnectionSharingService){
       throw new Error('CreateDVWDiscoveryTables: ConnectionSharingService is not set!!');
     }
@@ -172,10 +175,11 @@ class VirtualizationWizard implements vscode.Disposable{
 
     const suffix = new Date().getTime().toString();
     const localSchema = 'dbo';
+    const safeDbName = externalDbName.replace(/[^a-zA-Z0-9]/g, '_');
     const baseNames = [
-      { localName: `DVW_sys_tables_${suffix}`, remote: `[${this.SelectedDatabase}].[sys].[tables]` },
-      { localName: `DVW_sys_views_${suffix}`, remote: `[${this.SelectedDatabase}].[sys].[views]` },
-      { localName: `DVW_sys_schemas_${suffix}`, remote: `[${this.SelectedDatabase}].[sys].[schemas]` }
+      { localName: `DVW_${safeDbName}_sys_tables_${suffix}`, remote: `[${externalDbName}].[sys].[tables]` },
+      { localName: `DVW_${safeDbName}_sys_views_${suffix}`, remote: `[${externalDbName}].[sys].[views]` },
+      { localName: `DVW_${safeDbName}_sys_schemas_${suffix}`, remote: `[${externalDbName}].[sys].[schemas]` }
     ];
 
     for(const item of baseNames){
@@ -239,6 +243,117 @@ class VirtualizationWizard implements vscode.Disposable{
     }
     this.SelectedExternalDatabases = selection;
     console.log(`Selected external databases: ${this.SelectedExternalDatabases.join(', ')}`);
+  }
+
+  // New Step: Create discovery tables for all selected external databases with progress
+  private async CreateDVWDiscoveryTablesForAllExternalDatabases(): Promise<void>{
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Creating discovery tables",
+      cancellable: false
+    }, async (progress) => {
+      const total = this.SelectedExternalDatabases.length;
+      for(let i = 0; i < total; i++){
+        const extDb = this.SelectedExternalDatabases[i];
+        progress.report({ increment: (i / total) * 100, message: `Processing ${extDb} (${i+1}/${total})` });
+        await this.CreateDVWDiscoveryTables(extDb);
+      }
+      progress.report({ increment: 100, message: 'Complete' });
+    });
+  }
+
+  // New Step: Query DVW tables and prompt for table/view selection
+  private async PromptForTablesAndViews(): Promise<void>{
+    if(!this.ConnectionSharingService){
+      throw new Error('PromptForTablesAndViews: ConnectionSharingService is not set!!');
+    }
+    
+    // Collect all tables and views from all external databases
+    interface TableViewItem {
+      externalDb: string;
+      schema: string;
+      name: string;
+      type: 'U' | 'V';
+      displayLabel: string;
+    }
+    const allItems: TableViewItem[] = [];
+
+    for(const extDb of this.SelectedExternalDatabases){
+      const safeDbName = extDb.replace(/[^a-zA-Z0-9]/g, '_');
+      const tablesTable = this.DiscoveryTables.find(t => t.includes(`DVW_${safeDbName}_sys_tables_`));
+      const viewsTable = this.DiscoveryTables.find(t => t.includes(`DVW_${safeDbName}_sys_views_`));
+      const schemasTable = this.DiscoveryTables.find(t => t.includes(`DVW_${safeDbName}_sys_schemas_`));
+
+      if(!tablesTable || !viewsTable || !schemasTable){
+        vscode.window.showWarningMessage(`DVW: Skipping ${extDb} - discovery tables not found`);
+        continue;
+      }
+
+      // Query tables
+      const tablesQuery = `use ${this.SelectedDatabase}; 
+SELECT s.name as schema_name, t.name as table_name, 'U' as type
+FROM [${tablesTable.replace('.', '].[')}] t
+JOIN [${schemasTable.replace('.', '].[')}] s ON t.schema_id = s.schema_id
+ORDER BY s.name, t.name`;
+      const tablesOwnerUri = await this.GetFreshConnectionUri();
+      const tablesResult = await this.ConnectionSharingService.executeSimpleQuery(tablesOwnerUri, tablesQuery);
+      
+      for(const row of tablesResult.rows){
+        const schemaName = row[0].displayValue;
+        const tableName = row[1].displayValue;
+        allItems.push({
+          externalDb: extDb,
+          schema: schemaName,
+          name: tableName,
+          type: 'U',
+          displayLabel: `[${extDb}].[${schemaName}].[${tableName}] (Table)`
+        });
+      }
+
+      // Query views
+      const viewsQuery = `use ${this.SelectedDatabase}; 
+SELECT s.name as schema_name, v.name as view_name, 'V' as type
+FROM [${viewsTable.replace('.', '].[')}] v
+JOIN [${schemasTable.replace('.', '].[')}] s ON v.schema_id = s.schema_id
+ORDER BY s.name, v.name`;
+      const viewsOwnerUri = await this.GetFreshConnectionUri();
+      const viewsResult = await this.ConnectionSharingService.executeSimpleQuery(viewsOwnerUri, viewsQuery);
+      
+      for(const row of viewsResult.rows){
+        const schemaName = row[0].displayValue;
+        const viewName = row[1].displayValue;
+        allItems.push({
+          externalDb: extDb,
+          schema: schemaName,
+          name: viewName,
+          type: 'V',
+          displayLabel: `[${extDb}].[${schemaName}].[${viewName}] (View)`
+        });
+      }
+    }
+
+    if(allItems.length === 0){
+      throw new Error('PromptForTablesAndViews: No tables or views found in selected external databases');
+    }
+
+    // Present multi-select UI
+    const displayLabels = allItems.map(i => i.displayLabel);
+    const picked = await vscode.window.showQuickPick(displayLabels, { 
+      placeHolder: 'Select tables and views for external table generation', 
+      canPickMany: true 
+    });
+    let selection = picked;
+    while(!selection || selection.length === 0){
+      vscode.window.showInformationMessage('Please select at least one table or view');
+      selection = await vscode.window.showQuickPick(displayLabels, { 
+        placeHolder: 'Select tables and views for external table generation', 
+        canPickMany: true 
+      });
+    }
+
+    // Map selections back to items
+    this.SelectedTablesAndViews = allItems.filter(item => selection!.includes(item.displayLabel));
+    console.log(`Selected ${this.SelectedTablesAndViews.length} tables/views for script generation`);
   }
 
   private parseDetectedSchemaFromErrorMessage(message: string): string | undefined {
