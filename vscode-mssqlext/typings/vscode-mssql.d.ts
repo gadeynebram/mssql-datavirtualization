@@ -1060,12 +1060,21 @@ declare module "vscode-mssql" {
         loginEndpoint: string;
         portalEndpoint: string;
         redirectUri: string;
-        resources: IProviderResources;
+        settings: IProviderResources;
+        fabric: {
+            fabricApiUriBase: string;
+            fabricScopeUriBase: string;
+            sqlDbDnsSuffix: string;
+            dataWarehouseDnsSuffix: string;
+        };
+        dataverse: {
+            dynamicsCrmDnsSuffix: string;
+        };
     }
 
     export interface IProviderResources {
         windowsManagementResource: IAADResource;
-        azureManagementResource: IAADResource;
+        armResource: IAADResource;
         graphResource?: IAADResource;
         databaseResource?: IAADResource;
         ossRdbmsResource?: IAADResource;
@@ -2511,7 +2520,10 @@ declare module "vscode-mssql" {
          * @param connectionId The ID of the connection.
          * @returns The database name for the connection if found, or undefined if the connection is not found.
          */
-        getDatabaseForConnectionId(extensionId: string, connectionId: string): Promise<string | undefined>;
+        getDatabaseForConnectionId(
+            extensionId: string,
+            connectionId: string,
+        ): Promise<string | undefined>;
         /**
          * Connect to an existing connection using the connection ID.
          * This will return the connection URI if successful.
@@ -2578,5 +2590,12 @@ declare module "vscode-mssql" {
             operation: ScriptOperation,
             scriptingObject: IScriptingObject,
         ): Promise<string | undefined>;
+        /**
+         * Get the connection string for a specific connection ID.
+         * @param extensionId The ID of the extension.
+         * @param connectionId The ID of the connection.
+         * @returns The connection string if the connection is found, or undefined if the connection is not found.
+         */
+        getConnectionString(extensionId: string, connectionId: string): Promise<string | undefined>;
     }
 }
