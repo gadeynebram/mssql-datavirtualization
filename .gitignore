@@ -1,7 +1,6 @@
 # VS Code extension .gitignore
 node_modules/
 out/
-.vscode/
 *.vsix
 *.log
 npm-debug.log*
