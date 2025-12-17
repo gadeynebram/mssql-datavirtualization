@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { IExtension, IConnectionInfo, IConnectionSharingService } from 'vscode-mssql';
 
 export function activate(context: vscode.ExtensionContext) {
-  let disposable = vscode.commands.registerCommand('vscode-mssqlext.virtualizeDataWizard', async () => {
+  let disposable = vscode.commands.registerCommand('mssql-datavirtualization.virtualizeDataWizard', async () => {
     console.log('Virtualize Data Wizard started!');
     vscode.window.showInformationMessage('Virtualize Data Wizard started!');
 
@@ -21,7 +21,7 @@ class VirtualizationWizard implements vscode.Disposable{
   Connection: IConnectionInfo | undefined;
   ConnectionUri: string | undefined;
   OwnerDoc: vscode.TextDocument | undefined;
-  private readonly ExtensionId: string = 'gadeynebram.vscode-mssqlext';
+  private readonly ExtensionId: string = 'gadeynebram.mssql-datavirtualization';
   SelectedExternalDataSource: string | undefined;
   SelectedDatabase: string | undefined;
   SelectedExternalDatabases: string[] = [];

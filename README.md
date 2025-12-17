@@ -15,6 +15,14 @@ The wizard executes the following steps:
 7. **Review Scripts**: The generated DDL is displayed in a new SQL editor tab
 8. **Cleanup**: All temporary discovery tables are automatically removed
 
+## Usage
+
+To start the wizard:
+
+1. Press **CTRL + Shift + P** (or **CMD + Shift + P** on macOS) to open the Command Palette
+2. Type and select **"Virtualize Data Wizard"**
+3. Follow the step-by-step wizard to generate your external table scripts
+
 ## How It Works
 
 The wizard leverages PolyBase schema detection:
@@ -58,7 +66,3 @@ During the discovery process, the wizard creates temporary external tables (with
 - `DVW_*_sys_schemas_*`: For discovering schema information
 
 These tables are automatically removed at the end of the process. They are temporary and exist solely to support the discovery process.
-
-## Command
-
-- `Virtualize Data Wizard`: Start the data virtualization wizard
