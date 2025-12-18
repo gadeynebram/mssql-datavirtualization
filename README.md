@@ -2,6 +2,8 @@
 
 This VS Code extension provides a step-by-step wizard to connect external SQL Server databases via PolyBase and automatically generate `CREATE EXTERNAL TABLE` statements.
 
+> **Note**: As confirmed by Microsoft in [this discussion](https://github.com/microsoft/vscode-mssql/discussions/19462), "As of now, there isn't a direct replacement for the Virtualize Data extension in VS Code, neither we have planned to support this feature in the MSSQL extension." This community extension fills that gap.
+
 ## Features
 
 The wizard executes the following steps:
