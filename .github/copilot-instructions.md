@@ -71,3 +71,14 @@ These are automatically cleaned up at the end of the process.
 * All DDL statements are prefixed with `use ${this.SelectedDatabase};` for proper context
 * Fresh connection URIs are obtained before each query operation to avoid OwnerUri staleness
 * Progress notifications are shown for long-running operations (discovery, script generation, cleanup)
+
+## Version Management
+
+When updating extension or dependency versions:
+
+* Update `engines.vscode` in `package.json` for VS Code version changes
+* Update `@types/vscode` in `devDependencies` to match the VS Code version
+* Update the version badges in `README.md` to reflect the new minimum versions:
+  - VS Code badge: Update the version in the shield and link to code.visualstudio.com
+  - MSSQL Extension badge: Update the version and link to the corresponding GitHub release (e.g., https://github.com/microsoft/vscode-mssql/releases/tag/v1.38.0)
+* Update `version` in `package.json` for extension releases
