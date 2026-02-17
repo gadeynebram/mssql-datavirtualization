@@ -22,11 +22,26 @@ This is a VS Code extension for generating external tables for SQL Server PolyBa
 ```
 ├── src/
 │   └── extension.ts         # Main extension code with VirtualizationWizard class
+├── tst/                     # Test infrastructure and sample databases
+│   ├── docker-compose.yml   # Docker/Podman setup for Movies database
+│   ├── README.md            # Testing guide
+│   ├── sqlserver/           # SQL Server setup scripts
+│   │   ├── datafederation/  # Data Federation initialization scripts
+│   │   │   ├── 1.EnablePolyBase.sql
+│   │   │   ├── 2.CreateDataFederationDB.sql
+│   │   │   └── 3.CreateMSSQLExtConnection.sql
+│   │   └── movies/          # Movies database sample
+│   │       ├── init.sql
+│   │       └── entrypoint.sh
+│   └── mariadb/             # MariaDB setup (future use)
 ├── typings/
 │   └── vscode-mssql.d.ts    # Type definitions for MSSQL extension API
+├── images/                  # Documentation images
 ├── package.json             # Extension manifest
-├── tsconfig.json           # TypeScript configuration
-└── README.md               # Extension documentation
+├── tsconfig.json            # TypeScript configuration
+├── README.md                # Extension documentation
+├── RELEASE.md               # Release notes
+└── LICENSE                  # License file
 ```
 
 ## Wizard Implementation
@@ -71,6 +86,24 @@ These are automatically cleaned up at the end of the process.
 * All DDL statements are prefixed with `use ${this.SelectedDatabase};` for proper context
 * Fresh connection URIs are obtained before each query operation to avoid OwnerUri staleness
 * Progress notifications are shown for long-running operations (discovery, script generation, cleanup)
+
+## Testing and Local Development
+
+For testing the extension, see `tst/README.md` for complete setup instructions:
+
+1. **Local Setup (Recommended)**:
+   - Install SQL Server Express 2022 locally
+   - Execute the Data Federation scripts in order from `sqlserver/datafederation/`
+   - Use the wizard to load the Movies database
+
+2. **Docker/Podman Option**:
+   - Use `docker compose up -d` to host the Movies database separately
+   - Connect your local SQL Express to it via PolyBase
+
+The `tst/` folder contains:
+- **datafederation/**: Scripts to initialize Data Federation infrastructure
+- **movies/**: Sample Movies database with Docker support
+- **mariadb/**: (Future use) For multi-database scenarios
 
 ## Version Management
 
