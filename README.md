@@ -62,6 +62,10 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 
 Currently, only **SQL Server external data sources** are supported. Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
 
+## Test Infrastructure
+
+See [tst/README.md](tst/README.md) for a Docker/Podman compose environment with SQL Server (PolyBase), a dummy SQL Server, and a MariaDB instance.
+
 ## Note on Temporary Tables
 
 During the discovery process, the wizard creates temporary external tables (with prefix `DVW_`):
