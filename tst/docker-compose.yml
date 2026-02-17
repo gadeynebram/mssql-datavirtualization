@@ -1,0 +1,26 @@
+services:
+  movies:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    container_name: movies
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
+      MSSQL_PID: "Express"
+    ports:
+      - "14332:1433"
+    volumes:
+      - ./sqlserver/movies:/scripts
+    command: ["/bin/bash", "/scripts/entrypoint.sh"]
+
+  books:
+    image: mariadb:11
+    container_name: books
+    environment:
+      MARIADB_ROOT_PASSWORD: "Root!Passw0rd"
+      MARIADB_DATABASE: "Books"
+      MARIADB_USER: "books_user"
+      MARIADB_PASSWORD: "Books!Passw0rd"
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql

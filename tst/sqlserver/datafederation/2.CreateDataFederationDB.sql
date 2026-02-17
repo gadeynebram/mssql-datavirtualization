@@ -1,0 +1,5 @@
+IF DB_ID('DataFederationDB') IS NULL
+BEGIN
+  CREATE DATABASE DataFederationDB;
+END
+GO
