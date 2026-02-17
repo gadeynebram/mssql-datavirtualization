@@ -67,6 +67,41 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 
 Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
 
+## Building and Debugging
+
+### Build
+
+1. Install dependencies:
+	```bash
+	npm install
+	```
+2. Compile the extension:
+	```bash
+	npm run compile
+	```
+
+For continuous compilation during development:
+
+```bash
+npm run watch
+```
+
+### Debug (VS Code)
+
+1. Open this workspace in VS Code.
+2. Go to **Run and Debug**.
+3. Start the **Extension** launch configuration (or press **F5**).
+4. In the Extension Development Host window, run **"Virtualize Data Wizard"** from the Command Palette.
+
+### Package (VSIX)
+
+```bash
+npm install
+npm run package
+```
+
+The `.vsix` file is created in the project root.
+
 ## Test Infrastructure
 
 See [tst/README.md](tst/README.md) for a Docker/Podman compose environment with SQL Server (PolyBase), a dummy SQL Server, and a MariaDB instance.
