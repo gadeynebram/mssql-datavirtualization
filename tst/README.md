@@ -88,7 +88,7 @@ After setting up the Data Federation infrastructure:
 
 6. Execute the generated scripts against your connection
 
-7. Run [sqlserver/datafederation/4.VerifyExternalTables.sql](sqlserver/datafederation/4.VerifyExternalTables) against your current connection to verify that you can access the remove Movies and Ratings tables.
+7. Run [sqlserver/datafederation/4.VerifyMSSQLExternalTables.sql](sqlserver/datafederation/4.VerifyMSSQLExternalTables.sql) against your current connection to verify that you can access the remove Movies and Ratings tables.
 
 ## External Data Source Details
 
