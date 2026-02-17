@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { IExtension, IConnectionInfo } from 'vscode-mssql';
 import { ISchemaProvider } from './providers/ISchemaProvider';
 import { MSSQLSchemaProvider } from './providers/MSSQLSchemaProvider';
+import { MariaDBSchemaProvider } from './providers/MariaDBSchemaProvider';
 import { TableViewItem } from './providers/types';
 
 /**
@@ -149,7 +150,38 @@ export class VirtualizationWizard implements vscode.Disposable {
       throw new Error('InitializeProvider: SelectedDatabase is not set!');
     }
 
-    this.provider = new MSSQLSchemaProvider(this.API, this.Connection, this.ConnectionUri);
+    // Prompt user to select provider type
+    const providerOptions = [
+      {
+        label: 'SQL Server (MSSQL)',
+        description: 'For SQL Server external data sources',
+        value: 'mssql'
+      },
+      {
+        label: 'MariaDB / MySQL',
+        description: 'For MariaDB or MySQL external data sources via ODBC',
+        value: 'mariadb'
+      }
+    ];
+
+    const selectedProvider = await vscode.window.showQuickPick(providerOptions, {
+      placeHolder: 'Select the type of external data source you will be connecting to',
+      ignoreFocusOut: true
+    });
+
+    if (!selectedProvider) {
+      throw new Error('No provider selected. Wizard cancelled.');
+    }
+
+    // Create the appropriate provider based on user selection
+    if (selectedProvider.value === 'mariadb') {
+      console.log('Initializing MariaDBSchemaProvider');
+      this.provider = new MariaDBSchemaProvider(this.API, this.Connection, this.ConnectionUri);
+    } else {
+      console.log('Initializing MSSQLSchemaProvider');
+      this.provider = new MSSQLSchemaProvider(this.API, this.Connection, this.ConnectionUri);
+    }
+
     await this.provider.initialize(this.SelectedDatabase);
   }
 
@@ -267,7 +299,13 @@ export class VirtualizationWizard implements vscode.Disposable {
         const item = selectedItems[i];
         progress.report({ increment: (i / total) * 100, message: `Processing ${item.name} (${i + 1}/${total})` });
 
-        const remote = `[${item.externalDb}].[${item.schema}].[${item.name}]`;
+        // Generate remote path based on provider type
+        // MariaDB: 'database.table' (lowercase, no schema layer)
+        // MSSQL: '[database].[schema].[table]'
+        const isMariaDB = this.provider instanceof MariaDBSchemaProvider;
+        const remote = isMariaDB 
+          ? `${item.externalDb}.${item.name}` 
+          : `[${item.externalDb}].[${item.schema}].[${item.name}]`;
 
         // Detect the schema using the provider
         const detectedSchema = await this.provider!.detectSchema(remote, dataSource, `${item.schema}_${item.name}`);
