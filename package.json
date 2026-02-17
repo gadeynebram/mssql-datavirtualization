@@ -2,7 +2,7 @@
   "name": "mssql-datavirtualization",
   "displayName": "MSSQL Data Virtualization Wizard",
   "description": "A VS Code extension to virtualize data using MSSQL APIs.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "BramGadeyne",
   "license": "MIT",
   "icon": "images/icon.png",
