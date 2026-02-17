@@ -1,7 +1,7 @@
 # MSSQL Data Virtualization Wizard
 
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.108.1%2B-blue)](https://code.visualstudio.com/)
-[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.38.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/v1.38.0)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.109.0%2B-blue)](https://code.visualstudio.com/)
+[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.39.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/v1.38.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This VS Code extension provides a step-by-step wizard to connect external SQL Server databases via PolyBase and automatically generate `CREATE EXTERNAL TABLE` statements.
@@ -66,41 +66,6 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 - **MariaDB/MySQL external data sources** via PolyBase + ODBC
 
 Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
-
-## Building and Debugging
-
-### Build
-
-1. Install dependencies:
-	```bash
-	npm install
-	```
-2. Compile the extension:
-	```bash
-	npm run compile
-	```
-
-For continuous compilation during development:
-
-```bash
-npm run watch
-```
-
-### Debug (VS Code)
-
-1. Open this workspace in VS Code.
-2. Go to **Run and Debug**.
-3. Start the **Extension** launch configuration (or press **F5**).
-4. In the Extension Development Host window, run **"Virtualize Data Wizard"** from the Command Palette.
-
-### Package (VSIX)
-
-```bash
-npm install
-npm run package
-```
-
-The `.vsix` file is created in the project root.
 
 ## Test Infrastructure
 
