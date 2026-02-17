@@ -80,6 +80,8 @@ After setting up the Data Federation infrastructure:
 4. Follow the wizard steps:
    - Select Connection: **DataFederationDB**
    - Select database: **DataFederationDB**
+   - Select provider type: **SQL Server (MSSQL)**
+   - Select destination schema: **Movies**
    - Select external data source: **MoviesExternalSource**
    - Select external database: **Movies**
    - Select tables: **dbo.Movies** and **dbo.Ratings**
@@ -88,7 +90,13 @@ After setting up the Data Federation infrastructure:
 
 6. Execute the generated scripts against your connection
 
-7. Run [sqlserver/datafederation/4.VerifyMSSQLExternalTables.sql](sqlserver/datafederation/4.VerifyMSSQLExternalTables.sql) against your current connection to verify that you can access the remove Movies and Ratings tables.
+7. Run [sqlserver/datafederation/4.VerifyMSSQLExternalTables.sql](sqlserver/datafederation/4.VerifyMSSQLExternalTables.sql) against your current connection to verify that you can access the remote Movies and Ratings tables.
+
+8. Run [sqlserver/datafederation/5.CreateMariaDBExtConnection.sql](sqlserver/datafederation/5.CreateMariaDBExtConnection.sql) against your current connection.
+
+9. Repeat steps 3-6 but now with provider MariaDB and destination schema name Books
+
+10. Run [sqlserver/datafederation/6.VerifyMariaDBExternalTables.sql](sqlserver/datafederation/6.VerifyMariaDBExternalTables.sql) against your current connection to verify that you can access the remote Books and Ratings tables.
 
 ## External Data Source Details
 

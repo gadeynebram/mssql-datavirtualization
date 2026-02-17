@@ -181,11 +181,11 @@ ORDER BY s.name, v.name`;
     }
   }
 
-  generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string): string {
+  generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string, localSchema?: string): string {
     const remote = `[${item.externalDb}].[${item.schema}].[${item.name}]`;
-    const localSchema = item.schema;
+    const destSchema = localSchema || 'dbo';
     const localName = item.name;
-    const localFullName = `[${localSchema}].[${localName}]`;
+    const localFullName = `[${destSchema}].[${localName}]`;
     
     const lines: string[] = [];
     lines.push(`-- External ${item.type === 'U' ? 'Table' : 'View'}: ${remote}`);

@@ -179,12 +179,12 @@ ORDER BY table_name`;
     }
   }
 
-  generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string): string {
+  generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string, localSchema?: string): string {
     // MariaDB: LOCATION = 'database.table' (no schema layer)
     const remote = `${item.externalDb}.${item.name}`;
-    const localSchema = 'dbo';
+    const destSchema = localSchema || 'dbo';
     const localName = item.name;
-    const localFullName = `[${localSchema}].[${localName}]`;
+    const localFullName = `[${destSchema}].[${localName}]`;
     
     const lines: string[] = [];
     lines.push(`-- External ${item.type === 'U' ? 'Table' : 'View'}: ${item.externalDb}.${item.name}`);

@@ -52,9 +52,10 @@ export interface ISchemaProvider {
    * @param item - Table or view metadata
    * @param detectedSchema - Schema definition from detectSchema()
    * @param dataSource - External data source name
+   * @param localSchema - Optional destination schema name (defaults to 'dbo')
    * @returns SQL DDL statement
    */
-  generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string): string;
+  generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string, localSchema?: string): string;
 
   /**
    * Clean up all discovery infrastructure (temporary external tables)
