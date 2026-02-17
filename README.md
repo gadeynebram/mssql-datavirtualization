@@ -14,12 +14,14 @@ The wizard executes the following steps:
 
 1. **Select Connection**: Choose a SQL Server database connection
 2. **Select Database**: Choose the target database where external tables will be created
-3. **Select External Data Source**: Choose an existing PolyBase external data source
-4. **Discover External Databases**: Select one or more external databases to connect to
-5. **Select Tables/Views**: Choose which tables and views you want to virtualize
-6. **Generate Scripts**: The wizard automatically detects the schemas of external objects and generates corresponding `CREATE EXTERNAL TABLE` statements
-7. **Review Scripts**: The generated DDL is displayed in a new SQL editor tab
-8. **Cleanup**: All temporary discovery tables are automatically removed
+3. **Select Provider Type**: Choose SQL Server or MariaDB/MySQL discovery mode
+4. **Select Destination Schema**: Choose the schema for created external tables (default: `dbo`)
+5. **Select External Data Source**: Choose an existing PolyBase external data source
+6. **Discover External Databases**: Select one or more external databases to connect to
+7. **Select Tables/Views**: Choose which tables and views you want to virtualize
+8. **Generate Scripts**: The wizard automatically detects the schemas of external objects and generates corresponding `CREATE EXTERNAL TABLE` statements
+9. **Review Scripts**: The generated DDL is displayed in a new SQL editor tab
+10. **Cleanup**: All temporary discovery tables are automatically removed
 
 ## Usage
 
@@ -60,7 +62,45 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 
 ## Supported External Data Sources
 
-Currently, only **SQL Server external data sources** are supported. Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
+- **SQL Server external data sources** via PolyBase
+- **MariaDB/MySQL external data sources** via PolyBase + ODBC
+
+Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
+
+## Building and Debugging
+
+### Build
+
+1. Install dependencies:
+	```bash
+	npm install
+	```
+2. Compile the extension:
+	```bash
+	npm run compile
+	```
+
+For continuous compilation during development:
+
+```bash
+npm run watch
+```
+
+### Debug (VS Code)
+
+1. Open this workspace in VS Code.
+2. Go to **Run and Debug**.
+3. Start the **Extension** launch configuration (or press **F5**).
+4. In the Extension Development Host window, run **"Virtualize Data Wizard"** from the Command Palette.
+
+### Package (VSIX)
+
+```bash
+npm install
+npm run package
+```
+
+The `.vsix` file is created in the project root.
 
 ## Test Infrastructure
 

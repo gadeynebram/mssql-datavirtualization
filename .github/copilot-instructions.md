@@ -6,7 +6,6 @@
 ## Project Overview
 
 This is a VS Code extension for generating external tables for SQL Server PolyBase data virtualization.
-
 * **Extension Name**: MSSQL Data Virtualization Wizard
 * **Extension ID**: `gadeynebram.mssql-datavirtualization`
 * **Main Command**: `mssql-datavirtualization.virtualizeDataWizard` - Launches the data virtualization wizard
@@ -21,7 +20,9 @@ This is a VS Code extension for generating external tables for SQL Server PolyBa
 
 ```
 ├── src/
-│   └── extension.ts         # Main extension code with VirtualizationWizard class
+│   ├── extension.ts         # Extension activation entry point
+│   ├── VirtualizationWizard.ts # Wizard implementation and UI flow
+│   └── providers/           # Provider implementations (MSSQL, MariaDB)
 ├── tst/                     # Test infrastructure and sample databases
 │   ├── docker-compose.yml   # Docker/Podman setup for Movies database
 │   ├── README.md            # Testing guide
@@ -46,19 +47,21 @@ This is a VS Code extension for generating external tables for SQL Server PolyBa
 
 ## Wizard Implementation
 
-The `VirtualizationWizard` class in `src/extension.ts` implements a complete multi-step wizard:
+The `VirtualizationWizard` class in `src/VirtualizationWizard.ts` implements a complete multi-step wizard:
 
 1. **GetMSSQLAPI**: Activates and retrieves the MSSQL extension API
 2. **PromptForConnection**: Prompts user to select/create a SQL Server connection
 3. **PromptForDatabase**: Allows user to select a database (or use the current one)
-4. **PromptExternalDatasource**: Queries and displays available external data sources in the selected database
-5. **CreateDVWExternalDatabasesTable**: Creates temporary external table to master.sys.databases for database discovery
-6. **PromptForExternalDatabases**: Multi-select UI for choosing external databases to explore
-7. **CreateDVWDiscoveryTablesForAllExternalDatabases**: Creates temporary external tables (sys.tables, sys.views, sys.schemas) for each selected database
-8. **PromptForTablesAndViews**: Multi-select UI for choosing tables and views to virtualize
-9. **GenerateExternalTableScripts**: Generates CREATE EXTERNAL TABLE statements using schema detection via error messages
-10. **OpenScriptsInEditor**: Displays generated SQL scripts in a new editor tab
-11. **CleanupDVWTables**: Removes all temporary discovery tables
+4. **InitializeProvider**: Prompt user for provider type (MSSQL or MariaDB/MySQL)
+5. **PromptForSchema**: Prompt for destination schema (default: `dbo`)
+6. **EnsureSchemaExists**: Validate and create destination schema if needed
+7. **PromptExternalDatasource**: Queries and displays available external data sources in the selected database
+8. **PromptForExternalDatabases**: Multi-select UI for choosing external databases to explore
+9. **CreateDVWDiscoveryTablesForAllExternalDatabases**: Creates temporary external tables for each selected database
+10. **PromptForTablesAndViews**: Multi-select UI for choosing tables and views to virtualize
+11. **GenerateExternalTableScripts**: Generates CREATE EXTERNAL TABLE statements using schema detection via error messages
+12. **OpenScriptsInEditor**: Displays generated SQL scripts in a new editor tab
+13. **CleanupDVWTables**: Removes all temporary discovery tables
 
 ## Key Technical Approach
 
@@ -82,7 +85,7 @@ These are automatically cleaned up at the end of the process.
 
 ## Key Points
 
-* Only SQL Server external data sources are currently supported
+* SQL Server and MariaDB/MySQL external data sources are supported (via PolyBase + ODBC)
 * All DDL statements are prefixed with `use ${this.SelectedDatabase};` for proper context
 * Fresh connection URIs are obtained before each query operation to avoid OwnerUri staleness
 * Progress notifications are shown for long-running operations (discovery, script generation, cleanup)
