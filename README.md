@@ -8,6 +8,10 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 > **Note**: As confirmed by Microsoft in [this discussion](https://github.com/microsoft/vscode-mssql/discussions/19462), "As of now, there isn't a direct replacement for the Virtualize Data extension in VS Code, neither we have planned to support this feature in the MSSQL extension." This community extension fills that gap.
 
+## Changelog
+
+- 0.2.0: Add support for MariaDB / MySQL
+
 ## Features
 
 The wizard executes the following steps:
