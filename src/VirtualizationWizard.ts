@@ -108,7 +108,12 @@ export class VirtualizationWizard implements vscode.Disposable {
       }
       this.Connection = await this.API.promptForConnection();
       while (!this.Connection) {
-        vscode.window.showInformationMessage('Please select a connection.');
+        // User cancelled connection prompt, show confirmation
+        const shouldQuit = await this.confirmWizardCancellation();
+        if (shouldQuit) {
+          throw new Error('Wizard cancelled by user.');
+        }
+        // User chose not to quit, re-prompt
         this.Connection = await this.API.promptForConnection();
       }
       console.log(`Selected server: ${this.Connection.server}`);
