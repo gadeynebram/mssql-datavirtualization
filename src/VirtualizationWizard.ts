@@ -37,6 +37,20 @@ export class VirtualizationWizard implements vscode.Disposable {
   }
 
   /**
+   * Shows a confirmation dialog when user cancels/presses ESC.
+   * Returns true if user wants to quit the wizard, false otherwise.
+   */
+  private async confirmWizardCancellation(): Promise<boolean> {
+    const answer = await vscode.window.showWarningMessage(
+      'Do you want to quit the wizard?',
+      { modal: true },
+      'Yes',
+      'No'
+    );
+    return answer === 'Yes';
+  }
+
+  /**
    * Executes the complete data virtualization wizard workflow.
    * Steps:
    * 1. Get MSSQL API
@@ -118,6 +132,15 @@ export class VirtualizationWizard implements vscode.Disposable {
       let promptRequired: boolean = this.Connection.database.length == 0;
       if (!promptRequired) {
         let answer = await vscode.window.showQuickPick(["Yes", "No"], { placeHolder: `Work with the current database ${this.Connection?.database}?` });
+        if (!answer) {
+          // User pressed ESC, show confirmation
+          const shouldQuit = await this.confirmWizardCancellation();
+          if (shouldQuit) {
+            throw new Error('Wizard cancelled by user.');
+          }
+          // User chose not to quit, re-prompt
+          return this.PromptForDatabase();
+        }
         promptRequired = answer == "No";
         if (answer === 'Yes') {
           this.SelectedDatabase = this.Connection.database && this.Connection.database.length > 0 ? this.Connection.database : 'master';
@@ -130,7 +153,12 @@ export class VirtualizationWizard implements vscode.Disposable {
         }
         let dbPick = await vscode.window.showQuickPick(databases, { placeHolder: 'Select a database' });
         while (!dbPick) {
-          vscode.window.showInformationMessage('Please select a database');
+          // User pressed ESC, show confirmation
+          const shouldQuit = await this.confirmWizardCancellation();
+          if (shouldQuit) {
+            throw new Error('Wizard cancelled by user.');
+          }
+          // User chose not to quit, re-prompt
           dbPick = await vscode.window.showQuickPick(databases, { placeHolder: 'Select a database' });
         }
         this.SelectedDatabase = dbPick;
@@ -175,7 +203,13 @@ export class VirtualizationWizard implements vscode.Disposable {
     });
 
     if (!selectedProvider) {
-      throw new Error('No provider selected. Wizard cancelled.');
+      // User pressed ESC, show confirmation
+      const shouldQuit = await this.confirmWizardCancellation();
+      if (shouldQuit) {
+        throw new Error('Wizard cancelled by user.');
+      }
+      // User chose not to quit, re-prompt
+      return this.InitializeProvider();
     }
 
     // Create the appropriate provider based on user selection
@@ -209,7 +243,13 @@ export class VirtualizationWizard implements vscode.Disposable {
     });
 
     if (!schemaInput) {
-      throw new Error('No schema name provided. Wizard cancelled.');
+      // User pressed ESC, show confirmation
+      const shouldQuit = await this.confirmWizardCancellation();
+      if (shouldQuit) {
+        throw new Error('Wizard cancelled by user.');
+      }
+      // User chose not to quit, re-prompt
+      return this.PromptForSchema();
     }
 
     this.SelectedSchema = schemaInput.trim();
@@ -257,7 +297,12 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
       const sources = await this.provider.listExternalDataSources();
       let selected = await vscode.window.showQuickPick(sources, { placeHolder: 'Select a external data source' });
       while (!selected) {
-        vscode.window.showInformationMessage('Please select an external data source');
+        // User pressed ESC, show confirmation
+        const shouldQuit = await this.confirmWizardCancellation();
+        if (shouldQuit) {
+          throw new Error('Wizard cancelled by user.');
+        }
+        // User chose not to quit, re-prompt
         selected = await vscode.window.showQuickPick(sources, { placeHolder: 'Select a external data source' });
       }
       console.log(`Selected external datasource: ${selected}`);
@@ -279,7 +324,12 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
     });
     let selection = picked;
     while (!selection || selection.length === 0) {
-      vscode.window.showInformationMessage('Please select at least one external database');
+      // User pressed ESC or didn't select anything, show confirmation
+      const shouldQuit = await this.confirmWizardCancellation();
+      if (shouldQuit) {
+        throw new Error('Wizard cancelled by user.');
+      }
+      // User chose not to quit, re-prompt
       selection = await vscode.window.showQuickPick(dbNames, {
         placeHolder: 'Select one or more external databases',
         canPickMany: true
@@ -328,7 +378,12 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
     });
     let selection = picked;
     while (!selection || selection.length === 0) {
-      vscode.window.showInformationMessage('Please select at least one table or view');
+      // User pressed ESC or didn't select anything, show confirmation
+      const shouldQuit = await this.confirmWizardCancellation();
+      if (shouldQuit) {
+        throw new Error('Wizard cancelled by user.');
+      }
+      // User chose not to quit, re-prompt
       selection = await vscode.window.showQuickPick(displayLabels, {
         placeHolder: 'Select tables and views for external table generation',
         canPickMany: true
