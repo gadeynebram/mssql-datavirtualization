@@ -1,6 +1,9 @@
 -- Initialize Aviation database with Airplane and Flight tables
 -- This script runs as SYSTEM user and creates the AVIATION schema
 
+-- Switch to the pluggable database (required for Oracle Free multitenant architecture)
+ALTER SESSION SET CONTAINER = FREEPDB1;
+
 -- Create AVIATION user (schema)
 CREATE USER AVIATION IDENTIFIED BY "Aviation!Passw0rd"
   DEFAULT TABLESPACE USERS

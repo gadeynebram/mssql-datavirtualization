@@ -21,7 +21,7 @@ GO
 
 CREATE EXTERNAL DATA SOURCE Oracle_Aviation
 WITH (
-    LOCATION = 'oracle://localhost:1521',
+    LOCATION = 'oracle://localhost:1521/FREEPDB1',
     CREDENTIAL = OracleCredential
 );
 
