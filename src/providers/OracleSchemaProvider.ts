@@ -223,50 +223,30 @@ ORDER BY TABLE_NAME`;
   // Private helper methods
 
   /**
-   * Extract Oracle database name from the external data source location string.
-   * The location format is: oracle://hostname:port/DatabaseName
+   * Prompt user for Oracle database/PDB name.
+   * This is required for the 3-part LOCATION format (DATABASE.SCHEMA.TABLE).
+   * Note: The external data source LOCATION (oracle://host:port) does NOT contain 
+   * the database name per Microsoft documentation.
    */
   private async extractOracleDatabaseName(dataSource: string): Promise<void> {
-    if (!this.connectionSharingService || !this.selectedDatabase) {
-      throw new Error('extractOracleDatabaseName: Service or database not initialized');
-    }
-
-    const query = `use ${this.selectedDatabase}; 
-SELECT location 
-FROM sys.external_data_sources 
-WHERE name = '${dataSource}'`;
-    
-    const ownerUri = await this.getFreshConnectionUri();
-    const result = await this.connectionSharingService.executeSimpleQuery(ownerUri, query);
-    
-    if (result.rows.length > 0) {
-      const location = result.rows[0][0].displayValue as string;
-      // Extract database name from oracle://hostname:port/DatabaseName
-      const match = location.match(/oracle:\/\/[^\/]+\/(.+)/);
-      if (match && match[1]) {
-        this.oracleDatabaseName = match[1];
-      } else {
-        // Fallback: prompt user if we can't extract it
-        const userInput = await vscode.window.showInputBox({
-          prompt: 'Enter the Oracle database/PDB name (e.g., Aviation, FREEPDB1)',
-          placeHolder: 'Aviation',
-          ignoreFocusOut: true,
-          validateInput: (value: string) => {
-            if (!value || value.trim().length === 0) {
-              return 'Database name is required';
-            }
-            return null;
-          }
-        });
-        
-        if (userInput) {
-          this.oracleDatabaseName = userInput.trim();
-        } else {
-          throw new Error('Oracle database name is required for creating external tables');
+    // Always prompt user for the Oracle database/PDB name since it's not in the 
+    // external data source location string (which is just oracle://hostname:port)
+    const userInput = await vscode.window.showInputBox({
+      prompt: 'Enter the Oracle database/PDB name for 3-part table locations (e.g., Aviation, FREEPDB1)',
+      placeHolder: 'Aviation',
+      ignoreFocusOut: true,
+      validateInput: (value: string) => {
+        if (!value || value.trim().length === 0) {
+          return 'Database name is required for Oracle external tables';
         }
+        return null;
       }
+    });
+    
+    if (userInput) {
+      this.oracleDatabaseName = userInput.trim();
     } else {
-      throw new Error(`External data source '${dataSource}' not found`);
+      throw new Error('Oracle database/PDB name is required for creating external tables with 3-part LOCATION format');
     }
   }
 
