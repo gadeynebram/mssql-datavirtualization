@@ -150,6 +150,14 @@ Contains two tables:
   - [sqlserver/datafederation/3.CreateMSSQLExtConnection.sql](sqlserver/datafederation/3.CreateMSSQLExtConnection.sql)
 - Ensure the Movies database is accessible at the location specified in the external data source
 
+### "Oracle container not starting or timing out"
+
+- The Oracle Free container requires 2-3 minutes to fully initialize on first run
+- Check container logs: `docker compose logs aviation` or `podman compose logs aviation`
+- Wait for the healthcheck to pass: `docker compose ps` or `podman compose ps`
+- The container is ready when you see "DATABASE IS READY TO USE!" in the logs
+- Ensure you have enough disk space (Oracle requires ~8GB for the image and data)
+
 ### Docker containers fail to start
 
 - Check logs: `docker compose logs`

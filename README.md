@@ -73,6 +73,29 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 
 Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
 
+### Oracle-Specific Notes
+
+When working with Oracle external data sources:
+
+- Use the built-in `oracle://` connection string format (e.g., `oracle://hostname:1521`)
+- In Oracle, a **schema** equals a **user**. The wizard discovers schemas by querying `ALL_USERS`
+- System schemas (SYS, SYSTEM, etc.) are automatically filtered out
+- Oracle table names are typically uppercase (e.g., `AVIATION.AIRPLANE`)
+- The `LOCATION` in generated external tables uses the format: `SCHEMA.TABLE` (e.g., `AVIATION.AIRPLANE`)
+
+Example Oracle external data source creation:
+
+```sql
+CREATE DATABASE SCOPED CREDENTIAL OracleCredential
+WITH IDENTITY = 'SYSTEM', SECRET = 'YourPassword';
+
+CREATE EXTERNAL DATA SOURCE Oracle_Aviation
+WITH (
+    LOCATION = 'oracle://localhost:1521',
+    CREDENTIAL = OracleCredential
+);
+```
+
 ## Test Infrastructure
 
 See [tst/README.md](tst/README.md) for a Docker/Podman compose environment with:
