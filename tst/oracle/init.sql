@@ -4,11 +4,19 @@
 -- Switch to the pluggable database (required for Oracle Free multitenant architecture)
 ALTER SESSION SET CONTAINER = FREEPDB1;
 
+-- Create a tablespace for AVIATION data (Oracle Free lite may not have USERS tablespace)
+CREATE TABLESPACE AVIATION_DATA 
+  DATAFILE 'aviation_data01.dbf' 
+  SIZE 100M 
+  AUTOEXTEND ON 
+  NEXT 10M 
+  MAXSIZE 500M;
+
 -- Create AVIATION user (schema)
 CREATE USER AVIATION IDENTIFIED BY "Aviation!Passw0rd"
-  DEFAULT TABLESPACE USERS
+  DEFAULT TABLESPACE AVIATION_DATA
   TEMPORARY TABLESPACE TEMP
-  QUOTA UNLIMITED ON USERS;
+  QUOTA UNLIMITED ON AVIATION_DATA;
 
 -- Grant necessary privileges
 GRANT CONNECT, RESOURCE TO AVIATION;
