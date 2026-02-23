@@ -1,4 +1,4 @@
-USE DataFederation;
+USE DataFederationDB;
 GO
 
 -- Query the AIRPLANE external table
