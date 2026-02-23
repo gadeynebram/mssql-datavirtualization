@@ -21,6 +21,7 @@ export class OracleSchemaProvider implements ISchemaProvider {
   private connectionUri: string | undefined;
   private selectedDatabase: string | undefined;
   private discoveryTables: string[] = [];
+  private oracleDatabaseName: string | undefined;
 
   constructor(api: IExtension, connection: IConnectionInfo, connectionUri: string) {
     this.api = api;
@@ -59,12 +60,15 @@ export class OracleSchemaProvider implements ISchemaProvider {
       throw new Error('listExternalDatabases: ConnectionSharingService is not set!');
     }
 
-    // Create DVW external table to ALL_USERS
+    // Extract Oracle database name from the external data source location
+    await this.extractOracleDatabaseName(dataSource);
+
+    // Create DVW external table to ALL_USERS with 3-part name
     const suffix = new Date().getTime().toString();
     const localSchema = 'dbo';
     const localName = `DVW_ALL_USERS_${suffix}`;
     const localFullName = `[${localSchema}].[${localName}]`;
-    const remote = `ALL_USERS`;
+    const remote = `${this.oracleDatabaseName}.SYS.ALL_USERS`;
 
     await this.dropExternalTable(localSchema, localName);
     const created = await this.createExternalTableWithDetection(localFullName, remote, dataSource);
@@ -178,8 +182,8 @@ ORDER BY TABLE_NAME`;
   }
 
   generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string, localSchema?: string): string {
-    // Oracle: LOCATION = 'SCHEMA.TABLE'
-    const remote = `${item.schema}.${item.name}`;
+    // Oracle: LOCATION = 'DATABASE.SCHEMA.TABLE' (3-part name required)
+    const remote = `${this.oracleDatabaseName}.${item.schema}.${item.name}`;
     const destSchema = localSchema || 'dbo';
     const localName = item.name;
     const localFullName = `[${destSchema}].[${localName}]`;
@@ -213,9 +217,58 @@ ORDER BY TABLE_NAME`;
     this.connectionUri = undefined;
     this.selectedDatabase = undefined;
     this.discoveryTables = [];
+    this.oracleDatabaseName = undefined;
   }
 
   // Private helper methods
+
+  /**
+   * Extract Oracle database name from the external data source location string.
+   * The location format is: oracle://hostname:port/DatabaseName
+   */
+  private async extractOracleDatabaseName(dataSource: string): Promise<void> {
+    if (!this.connectionSharingService || !this.selectedDatabase) {
+      throw new Error('extractOracleDatabaseName: Service or database not initialized');
+    }
+
+    const query = `use ${this.selectedDatabase}; 
+SELECT location 
+FROM sys.external_data_sources 
+WHERE name = '${dataSource}'`;
+    
+    const ownerUri = await this.getFreshConnectionUri();
+    const result = await this.connectionSharingService.executeSimpleQuery(ownerUri, query);
+    
+    if (result.rows.length > 0) {
+      const location = result.rows[0][0].displayValue as string;
+      // Extract database name from oracle://hostname:port/DatabaseName
+      const match = location.match(/oracle:\/\/[^\/]+\/(.+)/);
+      if (match && match[1]) {
+        this.oracleDatabaseName = match[1];
+      } else {
+        // Fallback: prompt user if we can't extract it
+        const userInput = await vscode.window.showInputBox({
+          prompt: 'Enter the Oracle database/PDB name (e.g., Aviation, FREEPDB1)',
+          placeHolder: 'Aviation',
+          ignoreFocusOut: true,
+          validateInput: (value: string) => {
+            if (!value || value.trim().length === 0) {
+              return 'Database name is required';
+            }
+            return null;
+          }
+        });
+        
+        if (userInput) {
+          this.oracleDatabaseName = userInput.trim();
+        } else {
+          throw new Error('Oracle database name is required for creating external tables');
+        }
+      }
+    } else {
+      throw new Error(`External data source '${dataSource}' not found`);
+    }
+  }
 
   private async createDVWDiscoveryTables(externalSchemaName: string, dataSource: string): Promise<void> {
     if (!this.connectionSharingService) {
@@ -229,10 +282,10 @@ ORDER BY TABLE_NAME`;
     const localSchema = 'dbo';
     const safeDbName = externalSchemaName.replace(/[^a-zA-Z0-9]/g, '_');
     
-    // For each schema, create external table to ALL_TABLES
+    // For each schema, create external table to ALL_TABLES with 3-part name
     const localName = `DVW_${safeDbName}_ALL_TABLES_${suffix}`;
     const localFullName = `[${localSchema}].[${localName}]`;
-    const remote = `ALL_TABLES`;
+    const remote = `${this.oracleDatabaseName}.SYS.ALL_TABLES`;
 
     await this.dropExternalTable(localSchema, localName);
     const created = await this.createExternalTableWithDetection(localFullName, remote, dataSource);
