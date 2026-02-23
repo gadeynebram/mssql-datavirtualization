@@ -10,7 +10,8 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
-- 0.2.0: Add support for MariaDB / MySQL
+- 0.2.1: Add functionality to interrupt the wizard.
+- 0.2.0: Add support for MariaDB / MySQL. Add docker/podman test infrastructure for manual validation.
 
 ## Features
 
