@@ -60,8 +60,11 @@ podman compose down -v
 | Service | Port | Database | User | Password |
 | --- | --- | --- | --- | --- |
 | movies | 14332 | Movies | sa | YourStrong!Passw0rd |
+| books | 3307 | Books | books_user | Books!Passw0rd |
+| aviation | 1521 | FREE | SYSTEM | Oracle!Passw0rd |
 
 > **Note**: Use `127.0.0.1` instead of `localhost` when connecting to containers from Windows (e.g., `127.0.0.1,14332`).
+> **Oracle Note**: The Oracle Free container takes 2-3 minutes to fully initialize. Wait for the healthcheck to pass before connecting.
 
 ## Manual Test Flow
 
@@ -98,6 +101,12 @@ After setting up the Data Federation infrastructure:
 
 10. Run [sqlserver/datafederation/6.VerifyMariaDBExternalTables.sql](sqlserver/datafederation/6.VerifyMariaDBExternalTables.sql) against your current connection to verify that you can access the remote Books and Ratings tables.
 
+11. Run [sqlserver/datafederation/7.CreateOracleExtConnection.sql](sqlserver/datafederation/7.CreateOracleExtConnection.sql) against your current connection.
+
+12. Repeat steps 3-6 but now with provider Oracle and destination schema name Aviation
+
+13. Run [sqlserver/datafederation/8.VerifyOracleExternalTables.sql](sqlserver/datafederation/8.VerifyOracleExternalTables.sql) against your current connection to verify that you can access the remote AIRPLANE and FLIGHT tables.
+
 ## External Data Source Details
 
 The wizard discovers this external data source automatically:
@@ -113,6 +122,18 @@ The wizard discovers this external data source automatically:
 Contains two tables:
 - `dbo.Movies` (MovieId, Title, ReleaseYear)
 - `dbo.Ratings` (RatingId, MovieId, Rating, RatedAt)
+
+### Books Database
+
+Contains two tables:
+- `Books` (BookId, Title, Author, PublishedYear)
+- `Ratings` (RatingId, BookId, Rating, RatedAt)
+
+### Aviation Database
+
+Contains two tables:
+- `AVIATION.AIRPLANE` (AIRPLANE_ID, REGISTRATION, MODEL, MANUFACTURER, CAPACITY, YEAR_BUILT)
+- `AVIATION.FLIGHT` (FLIGHT_ID, FLIGHT_NUMBER, AIRPLANE_ID, DEPARTURE_AIRPORT, ARRIVAL_AIRPORT, DEPARTURE_TIME, ARRIVAL_TIME, STATUS)
 
 ## Troubleshooting
 
