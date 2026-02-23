@@ -70,14 +70,35 @@ export class VirtualizationWizard implements vscode.Disposable {
   async RunWizard() {
     await this.GetMSSQLAPI();
     await this.PromptForConnection();
+    if(!this.ConnectionUri) {
+      return;
+    }
     await this.PromptForDatabase();
+    if(!this.SelectedDatabase) {
+      return;
+    }
     await this.InitializeProvider();
+    if(!this.provider) {
+      return;
+    }
     await this.PromptForSchema();
+    if(!this.SelectedSchema) {
+      return;
+    }
     await this.EnsureSchemaExists();
     const selectedDataSource = await this.PromptExternalDatasource();
+    if(!selectedDataSource) {
+      return;
+    }
     const selectedExternalDatabases = await this.PromptForExternalDatabases(selectedDataSource);
+    if(!selectedExternalDatabases) {
+      return;
+    }
     await this.CreateDVWDiscoveryTablesForAllExternalDatabases(selectedDataSource, selectedExternalDatabases);
     const selectedTablesAndViews = await this.PromptForTablesAndViews(selectedExternalDatabases);
+    if(!selectedTablesAndViews) {
+      return;
+    }
     const scripts = await this.GenerateExternalTableScripts(selectedTablesAndViews, selectedDataSource);
     await this.OpenScriptsInEditor(scripts);
     await this.CleanupDVWTables();
@@ -111,7 +132,7 @@ export class VirtualizationWizard implements vscode.Disposable {
         // User cancelled connection prompt, show confirmation
         const shouldQuit = await this.confirmWizardCancellation();
         if (shouldQuit) {
-          throw new Error('Wizard cancelled by user.');
+          return;
         }
         // User chose not to quit, re-prompt
         this.Connection = await this.API.promptForConnection();
@@ -141,7 +162,7 @@ export class VirtualizationWizard implements vscode.Disposable {
           // User pressed ESC, show confirmation
           const shouldQuit = await this.confirmWizardCancellation();
           if (shouldQuit) {
-            throw new Error('Wizard cancelled by user.');
+            return;
           }
           // User chose not to quit, re-prompt
           return this.PromptForDatabase();
@@ -161,7 +182,7 @@ export class VirtualizationWizard implements vscode.Disposable {
           // User pressed ESC, show confirmation
           const shouldQuit = await this.confirmWizardCancellation();
           if (shouldQuit) {
-            throw new Error('Wizard cancelled by user.');
+            return;
           }
           // User chose not to quit, re-prompt
           dbPick = await vscode.window.showQuickPick(databases, { placeHolder: 'Select a database' });
@@ -211,7 +232,7 @@ export class VirtualizationWizard implements vscode.Disposable {
       // User pressed ESC, show confirmation
       const shouldQuit = await this.confirmWizardCancellation();
       if (shouldQuit) {
-        throw new Error('Wizard cancelled by user.');
+        return;
       }
       // User chose not to quit, re-prompt
       return this.InitializeProvider();
@@ -251,7 +272,7 @@ export class VirtualizationWizard implements vscode.Disposable {
       // User pressed ESC, show confirmation
       const shouldQuit = await this.confirmWizardCancellation();
       if (shouldQuit) {
-        throw new Error('Wizard cancelled by user.');
+        return;
       }
       // User chose not to quit, re-prompt
       return this.PromptForSchema();
@@ -293,7 +314,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
     }
   }
 
-  private async PromptExternalDatasource(): Promise<string> {
+  private async PromptExternalDatasource(): Promise<string | false> {
     try {
       if (!this.provider) {
         throw new Error('PromptExternalDatasource: Provider is not initialized!');
@@ -305,7 +326,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
         // User pressed ESC, show confirmation
         const shouldQuit = await this.confirmWizardCancellation();
         if (shouldQuit) {
-          throw new Error('Wizard cancelled by user.');
+          return false;
         }
         // User chose not to quit, re-prompt
         selected = await vscode.window.showQuickPick(sources, { placeHolder: 'Select a external data source' });
@@ -317,7 +338,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
     }
   }
 
-  private async PromptForExternalDatabases(dataSource: string): Promise<string[]> {
+  private async PromptForExternalDatabases(dataSource: string): Promise<string[] | false> {
     if (!this.provider) {
       throw new Error('PromptForExternalDatabases: Provider is not initialized!');
     }
@@ -332,7 +353,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
       // User pressed ESC or didn't select anything, show confirmation
       const shouldQuit = await this.confirmWizardCancellation();
       if (shouldQuit) {
-        throw new Error('Wizard cancelled by user.');
+        return false;
       }
       // User chose not to quit, re-prompt
       selection = await vscode.window.showQuickPick(dbNames, {
@@ -364,7 +385,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
     });
   }
 
-  private async PromptForTablesAndViews(externalDatabases: string[]): Promise<TableViewItem[]> {
+  private async PromptForTablesAndViews(externalDatabases: string[]): Promise<TableViewItem[] | false> {
     if (!this.provider) {
       throw new Error('PromptForTablesAndViews: Provider is not initialized!');
     }
@@ -386,7 +407,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
       // User pressed ESC or didn't select anything, show confirmation
       const shouldQuit = await this.confirmWizardCancellation();
       if (shouldQuit) {
-        throw new Error('Wizard cancelled by user.');
+        return false;
       }
       // User chose not to quit, re-prompt
       selection = await vscode.window.showQuickPick(displayLabels, {
