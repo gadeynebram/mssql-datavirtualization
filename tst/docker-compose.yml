@@ -30,6 +30,7 @@ services:
     container_name: aviation
     environment:
       ORACLE_PWD: "Oracle!Passw0rd"
+      ORACLE_PDB: "Aviation"
       ORACLE_CHARACTERSET: "AL32UTF8"
     ports:
       - "1521:1521"

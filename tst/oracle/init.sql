@@ -2,7 +2,7 @@
 -- This script runs as SYSTEM user and creates the AVIATION schema
 
 -- Switch to the pluggable database (required for Oracle Free multitenant architecture)
-ALTER SESSION SET CONTAINER = FREEPDB1;
+ALTER SESSION SET CONTAINER = Aviation;
 
 -- Create a tablespace for AVIATION data (Oracle Free lite may not have USERS tablespace)
 CREATE TABLESPACE AVIATION_DATA 
