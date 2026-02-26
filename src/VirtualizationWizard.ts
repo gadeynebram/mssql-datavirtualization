@@ -291,7 +291,7 @@ export class VirtualizationWizard implements vscode.Disposable {
     console.log(`Selected schema: ${this.SelectedSchema}`);
   }
 
-  private async EnsureSchemaExists(): Promise<void> {
+  async EnsureSchemaExists(): Promise<void> {
     if (!this.API || !this.SelectedDatabase || !this.SelectedSchema) {
       throw new Error('EnsureSchemaExists: Required properties not initialized');
     }

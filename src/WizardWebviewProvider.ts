@@ -115,17 +115,34 @@ export class WizardWebviewProvider {
             case 'loadData':
                 await this._loadStepData(message.step);
                 break;
+            case 'promptConnection':
+                await this._promptConnection();
+                break;
         }
     }
 
     private async _handleNext(data: any) {
-        // Save current step data
-        const currentStepName = this.steps[this._currentStep];
-        this.wizardState[currentStepName as keyof typeof this.wizardState] = data;
+        try {
+            // Validate and process current step
+            const currentStepName = this.steps[this._currentStep];
+            const isValid = await this._validateStep(currentStepName, data);
+            
+            if (!isValid) {
+                return; // Validation failed, stay on current step
+            }
 
-        // Move to next step
-        this._currentStep++;
-        await this._update();
+            // Save current step data
+            this.wizardState[currentStepName as keyof typeof this.wizardState] = data;
+
+            // Process step-specific logic
+            await this._processStep(currentStepName, data);
+
+            // Move to next step
+            this._currentStep++;
+            await this._update();
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error processing step: ${error}`);
+        }
     }
 
     private async _handlePrevious() {
@@ -137,22 +154,251 @@ export class WizardWebviewProvider {
 
     private async _handleComplete() {
         try {
-            // Execute the wizard with collected data
+            // Execute the final wizard steps
             await this._executeWizard();
-            vscode.window.showInformationMessage('Data Virtualization Wizard completed successfully!');
-            this.dispose();
         } catch (error) {
             vscode.window.showErrorMessage(`Wizard error: ${error}`);
         }
     }
 
+    private async _promptConnection() {
+        try {
+            // Initialize API if not already done
+            if (!this._wizard.API) {
+                await this._wizard.GetMSSQLAPI();
+            }
+
+            // Check if API is available
+            if (!this._wizard.API) {
+                throw new Error('MSSQL API not available');
+            }
+
+            // Use native MSSQL extension connection dialog
+            const connection = await this._wizard.API.promptForConnection();
+            
+            if (connection) {
+                this._wizard.Connection = connection;
+                this._wizard.ConnectionUri = await this._wizard.API.connect(connection);
+                
+                // Notify webview of successful connection
+                this._panel.webview.postMessage({
+                    command: 'connectionSuccess',
+                    data: {
+                        server: connection.server,
+                        database: connection.database || '(not specified)'
+                    }
+                });
+            } else {
+                this._panel.webview.postMessage({
+                    command: 'connectionCancelled'
+                });
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Connection failed: ${error}`);
+            this._panel.webview.postMessage({
+                command: 'connectionError',
+                error: String(error)
+            });
+        }
+    }
+
+    private async _validateStep(stepName: string, data: any): Promise<boolean> {
+        switch (stepName) {
+            case 'connection':
+                if (!this._wizard.ConnectionUri) {
+                    vscode.window.showWarningMessage('Please establish a connection before continuing.');
+                    return false;
+                }
+                return true;
+            case 'database':
+                if (!data || data.trim().length === 0) {
+                    vscode.window.showWarningMessage('Please select a database.');
+                    return false;
+                }
+                return true;
+            case 'provider':
+                if (!data) {
+                    vscode.window.showWarningMessage('Please select a provider type.');
+                    return false;
+                }
+                return true;
+            case 'schema':
+                if (!data || data.trim().length === 0) {
+                    vscode.window.showWarningMessage('Please enter a schema name.');
+                    return false;
+                }
+                // Validate schema name format
+                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(data.trim())) {
+                    vscode.window.showWarningMessage('Schema name must be a valid SQL identifier.');
+                    return false;
+                }
+                return true;
+            case 'datasource':
+                if (!data) {
+                    vscode.window.showWarningMessage('Please select an external data source.');
+                    return false;
+                }
+                return true;
+            case 'externaldatabases':
+                if (!data || data.length === 0) {
+                    vscode.window.showWarningMessage('Please select at least one external database.');
+                    return false;
+                }
+                return true;
+            case 'tables':
+                if (!data || data.length === 0) {
+                    vscode.window.showWarningMessage('Please select at least one table or view.');
+                    return false;
+                }
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    private async _processStep(stepName: string, data: any) {
+        switch (stepName) {
+            case 'database':
+                this._wizard.SelectedDatabase = data;
+                break;
+            case 'provider':
+                // Initialize provider based on selection
+                await this._initializeProvider(data);
+                break;
+            case 'schema':
+                this._wizard.SelectedSchema = data;
+                // Ensure schema exists
+                await this._wizard.EnsureSchemaExists();
+                break;
+            case 'externaldatabases':
+                // Create discovery infrastructure
+                const dataSource = this.wizardState.dataSource;
+                if (dataSource) {
+                    await this._createDiscoveryTables(dataSource, data);
+                }
+                break;
+        }
+    }
+
+    private async _initializeProvider(providerType: string) {
+        if (!this._wizard.API || !this._wizard.Connection || !this._wizard.ConnectionUri || !this._wizard.SelectedDatabase) {
+            throw new Error('Wizard not properly initialized');
+        }
+
+        const { MSSQLSchemaProvider } = await import('./providers/MSSQLSchemaProvider');
+        const { MariaDBSchemaProvider } = await import('./providers/MariaDBSchemaProvider');
+        const { OracleSchemaProvider } = await import('./providers/OracleSchemaProvider');
+
+        if (providerType === 'mariadb') {
+            this._wizard['provider'] = new MariaDBSchemaProvider(
+                this._wizard.API,
+                this._wizard.Connection,
+                this._wizard.ConnectionUri
+            );
+        } else if (providerType === 'oracle') {
+            this._wizard['provider'] = new OracleSchemaProvider(
+                this._wizard.API,
+                this._wizard.Connection,
+                this._wizard.ConnectionUri
+            );
+        } else {
+            this._wizard['provider'] = new MSSQLSchemaProvider(
+                this._wizard.API,
+                this._wizard.Connection,
+                this._wizard.ConnectionUri
+            );
+        }
+
+        await this._wizard['provider'].initialize(this._wizard.SelectedDatabase);
+    }
+
+    private async _createDiscoveryTables(dataSource: string, databases: string[]) {
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Creating discovery tables",
+            cancellable: false
+        }, async (progress) => {
+            const provider = this._wizard['provider'];
+            if (!provider) {
+                throw new Error('Provider not initialized');
+            }
+
+            const total = databases.length;
+            for (let i = 0; i < total; i++) {
+                const extDb = databases[i];
+                progress.report({ 
+                    increment: (i / total) * 100, 
+                    message: `Processing ${extDb} (${i + 1}/${total})` 
+                });
+                await provider.createDiscoveryInfrastructure(dataSource, [extDb]);
+            }
+            progress.report({ increment: 100, message: 'Complete' });
+        });
+    }
+
     private async _executeWizard() {
-        // Initialize wizard with collected state
-        await this._wizard.GetMSSQLAPI();
-        
-        // For now, we'll delegate to the original wizard flow
-        // This will be enhanced in a future iteration
-        vscode.window.showInformationMessage('Executing wizard with collected data...');
+        try {
+            const provider = this._wizard['provider'];
+            if (!provider || !this._wizard.SelectedSchema) {
+                throw new Error('Wizard not properly configured');
+            }
+
+            const dataSource = this.wizardState.dataSource;
+            const tables = this.wizardState.tables;
+            const externalDatabases = this.wizardState.externalDatabases;
+
+            if (!dataSource || !tables || !externalDatabases) {
+                throw new Error('Missing required wizard data');
+            }
+
+            // Generate scripts
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "Generating external table scripts",
+                cancellable: false
+            }, async (progress) => {
+                const scripts: string[] = [];
+                scripts.push('-- Generated by Data Virtualization Wizard');
+                scripts.push(`-- Date: ${new Date().toLocaleString()}`);
+                scripts.push(`-- External Data Source: ${dataSource}`);
+                scripts.push(`-- Destination Schema: ${this._wizard.SelectedSchema}`);
+                scripts.push('');
+
+                const total = tables.length;
+                for (let i = 0; i < total; i++) {
+                    const tableData = tables[i];
+                    progress.report({ 
+                        increment: (i / total) * 100, 
+                        message: `Processing ${tableData.name} (${i + 1}/${total})` 
+                    });
+
+                    // For this iteration, we'll add placeholder scripts
+                    // A full implementation would parse tableData and use provider methods
+                    scripts.push(`-- External Table: ${tableData.database}.${tableData.schema}.${tableData.name}`);
+                    scripts.push(`-- CREATE EXTERNAL TABLE [${this._wizard.SelectedSchema}].[${tableData.name}]`);
+                    scripts.push(`-- (...)`);
+                    scripts.push(`-- WITH (LOCATION = N'${tableData.location}', DATA_SOURCE = [${dataSource}]);`);
+                    scripts.push('');
+                }
+
+                progress.report({ increment: 100, message: 'Complete' });
+
+                // Open scripts in editor
+                const doc = await vscode.workspace.openTextDocument({
+                    language: 'sql',
+                    content: scripts.join('\n')
+                });
+                await vscode.window.showTextDocument(doc, { preview: false });
+            });
+
+            // Cleanup
+            await provider.cleanupDiscoveryTables();
+
+            vscode.window.showInformationMessage('Data Virtualization Wizard completed successfully!');
+            this.dispose();
+        } catch (error) {
+            throw error;
+        }
     }
 
     private async _loadStepData(step: string) {
@@ -184,9 +430,72 @@ export class WizardWebviewProvider {
                     break;
                     
                 case 'datasource':
-                    // This requires the provider to be initialized
-                    // Will be implemented when refactoring the wizard
-                    data = { sources: [] };
+                    // Load external data sources
+                    const provider = this._wizard['provider'];
+                    if (provider) {
+                        try {
+                            const sources = await provider.listExternalDataSources();
+                            data = { sources };
+                        } catch (error) {
+                            console.error('Error loading data sources:', error);
+                            data = { sources: [], error: String(error) };
+                        }
+                    } else {
+                        data = { sources: [], error: 'Provider not initialized' };
+                    }
+                    break;
+                    
+                case 'externaldatabases':
+                    // Load external databases from selected data source
+                    const extProvider = this._wizard['provider'];
+                    const dataSource = this.wizardState.dataSource;
+                    if (extProvider && dataSource) {
+                        try {
+                            const databases = await extProvider.listExternalDatabases(dataSource);
+                            data = { databases };
+                        } catch (error) {
+                            console.error('Error loading external databases:', error);
+                            data = { databases: [], error: String(error) };
+                        }
+                    } else {
+                        data = { databases: [], error: 'Provider or data source not set' };
+                    }
+                    break;
+                    
+                case 'tables':
+                    // Load tables and views from selected external databases
+                    const tblProvider = this._wizard['provider'];
+                    const extDatabases = this.wizardState.externalDatabases;
+                    if (tblProvider && extDatabases && extDatabases.length > 0) {
+                        try {
+                            const items = await tblProvider.listTablesAndViews(extDatabases);
+                            data = { 
+                                tables: items.map(item => ({
+                                    ...item,
+                                    id: `${item.externalDb}.${item.schema}.${item.name}`
+                                }))
+                            };
+                        } catch (error) {
+                            console.error('Error loading tables:', error);
+                            data = { tables: [], error: String(error) };
+                        }
+                    } else {
+                        data = { tables: [], error: 'Provider or databases not set' };
+                    }
+                    break;
+                    
+                case 'generate':
+                    // Prepare summary data
+                    data = {
+                        summary: {
+                            database: this.wizardState.database,
+                            provider: this.wizardState.provider,
+                            schema: this.wizardState.schema,
+                            dataSource: this.wizardState.dataSource,
+                            externalDatabases: this.wizardState.externalDatabases,
+                            tableCount: this.wizardState.tables?.length || 0
+                        }
+                    };
                     break;
             }
             
@@ -427,10 +736,13 @@ export class WizardWebviewProvider {
                 <div class="step-title">SQL Server Connection</div>
                 <div class="step-description">Select or create a SQL Server connection for data virtualization.</div>
                 <div class="info-message">
-                    Click "Next" to open the connection dialog. You can select an existing connection or create a new one.
+                    Click the button below to open the connection dialog. You can select an existing connection or create a new one.
                 </div>
                 <div class="form-group">
-                    <div id="connectionStatus">Ready to connect...</div>
+                    <button class="button" id="connectBtn">Connect to SQL Server</button>
+                </div>
+                <div class="form-group">
+                    <div id="connectionStatus">Not connected</div>
                 </div>
             </div>
             
@@ -534,6 +846,14 @@ export class WizardWebviewProvider {
         const nextBtn = document.getElementById('nextBtn');
         const completeBtn = document.getElementById('completeBtn');
         const cancelBtn = document.getElementById('cancelBtn');
+        const connectBtn = document.getElementById('connectBtn');
+        
+        // Connection button handler
+        if (connectBtn) {
+            connectBtn.addEventListener('click', () => {
+                vscode.postMessage({ command: 'promptConnection' });
+            });
+        }
         
         // Update UI based on current step
         function updateUI(step, stepName, total, state) {
@@ -580,13 +900,28 @@ export class WizardWebviewProvider {
                 case 'stepData':
                     handleStepData(message.step, message.data);
                     break;
+                case 'connectionSuccess':
+                    handleConnectionSuccess(message.data);
+                    break;
+                case 'connectionCancelled':
+                    document.getElementById('connectionStatus').textContent = 'Connection cancelled. Please try again.';
+                    break;
+                case 'connectionError':
+                    document.getElementById('connectionStatus').textContent = 'Connection error: ' + message.error;
+                    break;
             }
         });
+        
+        function handleConnectionSuccess(data) {
+            const status = document.getElementById('connectionStatus');
+            status.textContent = \`Connected to \${data.server} (Database: \${data.database})\`;
+            status.style.color = 'var(--vscode-charts-green)';
+        }
         
         function handleStepData(step, data) {
             switch (step) {
                 case 'connection':
-                    document.getElementById('connectionStatus').textContent = 'Ready to connect to SQL Server';
+                    document.getElementById('connectionStatus').textContent = 'Not connected';
                     break;
                     
                 case 'database':
@@ -609,6 +944,92 @@ export class WizardWebviewProvider {
                     
                 case 'provider':
                     // Provider options are static in HTML
+                    break;
+                    
+                case 'datasource':
+                    const dsSelect = document.getElementById('dataSourceSelect');
+                    dsSelect.innerHTML = '';
+                    if (data.sources && data.sources.length > 0) {
+                        data.sources.forEach(source => {
+                            const option = document.createElement('option');
+                            option.value = source;
+                            option.textContent = source;
+                            dsSelect.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = data.error || '-- No data sources found --';
+                        dsSelect.appendChild(option);
+                    }
+                    break;
+                    
+                case 'externaldatabases':
+                    const dbList = document.getElementById('externalDatabasesList');
+                    dbList.innerHTML = '';
+                    if (data.databases && data.databases.length > 0) {
+                        data.databases.forEach(db => {
+                            const label = document.createElement('label');
+                            label.className = 'form-checkbox';
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.value = db;
+                            checkbox.name = 'externalDb';
+                            label.appendChild(checkbox);
+                            label.appendChild(document.createTextNode(db));
+                            dbList.appendChild(label);
+                        });
+                    } else {
+                        dbList.textContent = data.error || 'No external databases found';
+                    }
+                    break;
+                    
+                case 'tables':
+                    const tablesList = document.getElementById('tablesList');
+                    tablesList.innerHTML = '';
+                    if (data.tables && data.tables.length > 0) {
+                        data.tables.forEach(table => {
+                            const label = document.createElement('label');
+                            label.className = 'form-checkbox';
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.value = table.id || table.displayLabel;
+                            checkbox.name = 'table';
+                            checkbox.setAttribute('data-table', JSON.stringify(table));
+                            label.appendChild(checkbox);
+                            label.appendChild(document.createTextNode(table.displayLabel || table.name));
+                            tablesList.appendChild(label);
+                        });
+                    } else {
+                        tablesList.textContent = data.error || 'No tables found';
+                    }
+                    break;
+                    
+                case 'generate':
+                    const summary = document.getElementById('summaryContent');
+                    if (data.summary) {
+                        const s = data.summary;
+                        summary.innerHTML = \`
+                            <div class="form-group">
+                                <strong>Target Database:</strong> \${s.database || 'N/A'}
+                            </div>
+                            <div class="form-group">
+                                <strong>Provider Type:</strong> \${s.provider || 'N/A'}
+                            </div>
+                            <div class="form-group">
+                                <strong>Destination Schema:</strong> \${s.schema || 'N/A'}
+                            </div>
+                            <div class="form-group">
+                                <strong>External Data Source:</strong> \${s.dataSource || 'N/A'}
+                            </div>
+                            <div class="form-group">
+                                <strong>External Databases:</strong> \${s.externalDatabases ? s.externalDatabases.join(', ') : 'N/A'}
+                            </div>
+                            <div class="form-group">
+                                <strong>Tables to Virtualize:</strong> \${s.tableCount || 0}
+                            </div>
+                        \`;
+                    }
                     break;
             }
         }
@@ -657,12 +1078,19 @@ export class WizardWebviewProvider {
                 case 6: // Tables
                     const checkedTables = [];
                     document.querySelectorAll('#tablesList input[type="checkbox"]:checked').forEach(cb => {
-                        checkedTables.push(cb.value);
+                        try {
+                            const tableData = JSON.parse(cb.getAttribute('data-table'));
+                            checkedTables.push(tableData);
+                        } catch (e) {
+                            // Fallback if JSON parsing fails
+                            checkedTables.push({ name: cb.value });
+                        }
                     });
                     return checkedTables;
                 default:
                     return {};
             }
+        }
         }
     </script>
 </body>
