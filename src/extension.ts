@@ -19,8 +19,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register the sidebar tree view provider
   const wizardViewProvider = new WizardViewProvider(context.extensionUri);
-  const treeView = vscode.window.registerTreeDataProvider('mssqlDataVirtualization', wizardViewProvider);
-  context.subscriptions.push(treeView);
+  const treeViewDisposable = vscode.window.registerTreeDataProvider('mssqlDataVirtualization', wizardViewProvider);
+  context.subscriptions.push(treeViewDisposable);
 
   // Register refresh command for the tree view
   let refreshCommand = vscode.commands.registerCommand('mssql-datavirtualization.refreshView', () => {

@@ -36,12 +36,12 @@
     "commands": [
       {
         "command": "mssql-datavirtualization.virtualizeDataWizard",
-        "title": "Virtualize Data Wizard (Classic)",
+        "title": "Virtualize Data Wizard",
         "category": "MSSQL Data Virtualization"
       },
       {
         "command": "mssql-datavirtualization.openWizardWebview",
-        "title": "Start Data Virtualization Wizard",
+        "title": "Start Data Virtualization Wizard (UI)",
         "category": "MSSQL Data Virtualization",
         "icon": "$(rocket)"
       },

@@ -285,23 +285,23 @@ export class WizardWebviewProvider {
             throw new Error('Wizard not properly initialized');
         }
 
-        const { MSSQLSchemaProvider } = await import('./providers/MSSQLSchemaProvider');
-        const { MariaDBSchemaProvider } = await import('./providers/MariaDBSchemaProvider');
-        const { OracleSchemaProvider } = await import('./providers/OracleSchemaProvider');
-
+        // Import only the required provider based on type
         if (providerType === 'mariadb') {
+            const { MariaDBSchemaProvider } = await import('./providers/MariaDBSchemaProvider');
             this._wizard['provider'] = new MariaDBSchemaProvider(
                 this._wizard.API,
                 this._wizard.Connection,
                 this._wizard.ConnectionUri
             );
         } else if (providerType === 'oracle') {
+            const { OracleSchemaProvider } = await import('./providers/OracleSchemaProvider');
             this._wizard['provider'] = new OracleSchemaProvider(
                 this._wizard.API,
                 this._wizard.Connection,
                 this._wizard.ConnectionUri
             );
         } else {
+            const { MSSQLSchemaProvider } = await import('./providers/MSSQLSchemaProvider');
             this._wizard['provider'] = new MSSQLSchemaProvider(
                 this._wizard.API,
                 this._wizard.Connection,
@@ -351,7 +351,7 @@ export class WizardWebviewProvider {
                 throw new Error('Missing required wizard data');
             }
 
-            // Generate scripts
+            // Generate scripts using provider methods
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
                 title: "Generating external table scripts",
@@ -366,19 +366,36 @@ export class WizardWebviewProvider {
 
                 const total = tables.length;
                 for (let i = 0; i < total; i++) {
-                    const tableData = tables[i];
+                    const item = tables[i];
                     progress.report({ 
                         increment: (i / total) * 100, 
-                        message: `Processing ${tableData.name} (${i + 1}/${total})` 
+                        message: `Processing ${item.name} (${i + 1}/${total})` 
                     });
 
-                    // For this iteration, we'll add placeholder scripts
-                    // A full implementation would parse tableData and use provider methods
-                    scripts.push(`-- External Table: ${tableData.database}.${tableData.schema}.${tableData.name}`);
-                    scripts.push(`-- CREATE EXTERNAL TABLE [${this._wizard.SelectedSchema}].[${tableData.name}]`);
-                    scripts.push(`-- (...)`);
-                    scripts.push(`-- WITH (LOCATION = N'${tableData.location}', DATA_SOURCE = [${dataSource}]);`);
-                    scripts.push('');
+                    // Generate remote path based on item structure
+                    const remote = item.externalDb 
+                        ? `[${item.externalDb}].[${item.schema}].[${item.name}]`
+                        : `${item.displayLabel}`;
+
+                    // Detect the schema using the provider
+                    const detectedSchema = await provider.detectSchema(remote, dataSource, `${item.schema}_${item.name}`);
+
+                    if (detectedSchema) {
+                        const script = provider.generateCreateScript(item, detectedSchema, dataSource, this._wizard.SelectedSchema);
+                        scripts.push(script);
+                    } else {
+                        // If schema detection fails, add a comment
+                        const localName = item.name;
+                        const localFullName = `[${this._wizard.SelectedSchema}].[${localName}]`;
+                        scripts.push(`-- External ${item.type === 'U' ? 'Table' : 'View'}: ${remote}`);
+                        scripts.push(`-- WARNING: Could not detect schema for ${remote}`);
+                        scripts.push(`-- CREATE EXTERNAL TABLE ${localFullName}`);
+                        scripts.push(`-- (`);
+                        scripts.push(`--     [column_name] DATA_TYPE`);
+                        scripts.push(`-- )`);
+                        scripts.push(`-- WITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`);
+                        scripts.push('');
+                    }
                 }
 
                 progress.report({ increment: 100, message: 'Complete' });
@@ -522,11 +539,6 @@ export class WizardWebviewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview): string {
-        // Get the local path to resources
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'out', 'wizardWebview.js')
-        );
-
         // Use a nonce to only allow specific scripts to be run
         const nonce = getNonce();
 

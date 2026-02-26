@@ -41,11 +41,13 @@ There are now two ways to start the wizard:
 2. Click **"Start Data Virtualization Wizard"** in the sidebar view
 3. Use the webview-based wizard with Previous/Next/Complete buttons to navigate through the steps
 
-### Option 2: Command Palette (Classic)
+### Option 2: Command Palette
 
 1. Press **CTRL + Shift + P** (or **CMD + Shift + P** on macOS) to open the Command Palette
-2. Type and select **"Virtualize Data Wizard (Classic)"** or **"Start Data Virtualization Wizard"**
-3. Follow the step-by-step wizard using VS Code's native quick-pick dialogs
+2. Type and select **"Virtualize Data Wizard"** or **"Start Data Virtualization Wizard (UI)"**
+3. Follow the step-by-step wizard
+
+Both options provide full wizard functionality, with the webview option offering a more visual and guided experience.
 
 ## How It Works
 
