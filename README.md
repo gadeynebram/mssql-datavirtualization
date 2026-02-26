@@ -8,6 +8,13 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 > **Note**: As confirmed by Microsoft in [this discussion](https://github.com/microsoft/vscode-mssql/discussions/19462), "As of now, there isn't a direct replacement for the Virtualize Data extension in VS Code, neither we have planned to support this feature in the MSSQL extension." This community extension fills that gap.
 
+## Key Features
+
+- **Multiple UI Entry Points**: Access the wizard through the Activity Bar, Status Bar, or Command Palette
+- **Interactive Activity Bar View**: Dedicated sidebar panel with quick access to wizard actions
+- **Persistent Status Bar Button**: Always-visible button for launching the wizard
+- **Traditional Command Palette Access**: Standard CTRL+SHIFT+P command support
+
 ## Changelog
 
 - 0.3.0: Add support for Oracle external datasources + update vscode-mssql typing to 1.40
@@ -15,7 +22,7 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 - 0.2.0: Add support for MariaDB / MySQL external datasources
 - 0.1.0: Support for SQL Server external datasources
 
-## Features
+## Wizard Features
 
 The wizard executes the following steps:
 
@@ -32,8 +39,18 @@ The wizard executes the following steps:
 
 ## Usage
 
-To start the wizard:
+There are multiple ways to start the Data Virtualization Wizard:
 
+### Option 1: Activity Bar (Recommended)
+1. Click the **Data Virtualization** icon in the Activity Bar (left sidebar)
+2. In the opened view, click **Start Wizard**
+3. Follow the step-by-step wizard to generate your external table scripts
+
+### Option 2: Status Bar
+1. Click the **"$(database) Virtualize Data"** button in the status bar (bottom right)
+2. Follow the step-by-step wizard to generate your external table scripts
+
+### Option 3: Command Palette
 1. Press **CTRL + Shift + P** (or **CMD + Shift + P** on macOS) to open the Command Palette
 2. Type and select **"Virtualize Data Wizard"**
 3. Follow the step-by-step wizard to generate your external table scripts

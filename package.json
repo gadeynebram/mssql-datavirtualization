@@ -28,14 +28,36 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:mssql-datavirtualization.virtualizeDataWizard"
+    "onView:mssql-datavirtualization-view"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mssql-datavirtualization-container",
+          "title": "Data Virtualization",
+          "icon": "images/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "mssql-datavirtualization-container": [
+        {
+          "id": "mssql-datavirtualization-view",
+          "name": "Wizard Actions"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "mssql-datavirtualization.virtualizeDataWizard",
-        "title": "Virtualize Data Wizard"
+        "title": "Virtualize Data Wizard",
+        "icon": "$(database)"
+      },
+      {
+        "command": "mssql-datavirtualization.showHelp",
+        "title": "Data Virtualization: Show Help"
       }
     ]
   },
