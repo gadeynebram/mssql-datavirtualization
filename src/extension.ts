@@ -4,6 +4,8 @@ import { WizardTreeProvider } from './WizardTreeProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   // Register the main wizard command
+  // Note: We create a new VirtualizationWizard instance on each invocation
+  // to ensure clean state and proper resource cleanup between wizard runs
   let disposable = vscode.commands.registerCommand('mssql-datavirtualization.virtualizeDataWizard', async () => {
     let wizard: VirtualizationWizard = new VirtualizationWizard();
     await wizard.RunWizard();
