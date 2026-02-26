@@ -10,9 +10,10 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
-- 0.3.0: Add support for Oracle databases
+- 0.3.0: Add support for Oracle external datasources + update vscode-mssql typing to 1.40
 - 0.2.1: Add functionality to interrupt the wizard.
-- 0.2.0: Add support for MariaDB / MySQL
+- 0.2.0: Add support for MariaDB / MySQL external datasources
+- 0.1.0: Support for SQL Server external datasources
 
 ## Features
 
