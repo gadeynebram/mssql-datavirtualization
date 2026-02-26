@@ -1,7 +1,7 @@
 # MSSQL Data Virtualization Wizard
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.109.0%2B-blue)](https://code.visualstudio.com/)
-[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.39.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/v1.38.0)
+[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.40.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/v1.40.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This VS Code extension provides a step-by-step wizard to connect external SQL Server databases via PolyBase and automatically generate `CREATE EXTERNAL TABLE` statements.

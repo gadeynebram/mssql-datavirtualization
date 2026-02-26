@@ -116,5 +116,5 @@ When updating extension or dependency versions:
 * Update `@types/vscode` in `devDependencies` to match the VS Code version
 * Update the version badges in `README.md` to reflect the new minimum versions:
   - VS Code badge: Update the version in the shield and link to code.visualstudio.com
-  - MSSQL Extension badge: Update the version and link to the corresponding GitHub release (e.g., https://github.com/microsoft/vscode-mssql/releases/tag/v1.38.0)
+  - MSSQL Extension badge: Update the version and link to the corresponding GitHub release (e.g., https://github.com/microsoft/vscode-mssql/releases/tag/v1.40.0)
 * Update `version` in `package.json` for extension releases

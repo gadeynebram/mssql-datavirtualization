@@ -450,7 +450,6 @@ declare module "vscode-mssql" {
             targetFolderStructure: ExtractTarget,
             taskExecutionMode: TaskExecutionMode,
         ): Thenable<SchemaComparePublishProjectResult>;
-        schemaCompareGetDefaultOptions(): Thenable<SchemaCompareOptionsResult>;
         includeExcludeNode(
             operationId: string,
             diffEntry: DiffEntry,
@@ -534,6 +533,10 @@ declare module "vscode-mssql" {
             packageFilePath: string,
             createStreamingJobTsql: string,
         ): Thenable<ValidateStreamingJobResult>;
+        parseTSqlScript(
+            filePath: string,
+            databaseSchemaProvider: string,
+        ): Thenable<ParseTSqlScriptResult>;
         savePublishProfile(
             profilePath: string,
             databaseName: string,
@@ -541,6 +544,7 @@ declare module "vscode-mssql" {
             sqlCommandVariableValues?: Map<string, string>,
             deploymentOptions?: DeploymentOptions,
         ): Thenable<ResultStatus>;
+        getDeploymentOptions(scenario: DeploymentScenario): Thenable<GetDeploymentOptionsResult>;
     }
 
     /**
@@ -1364,6 +1368,29 @@ declare module "vscode-mssql" {
 
     export interface ValidateStreamingJobResult extends ResultStatus { }
 
+    export interface ParseTSqlScriptResult {
+        containsCreateTableStatement: boolean;
+    }
+
+    /**
+     * Parameters for getting deployment options based on scenario
+     */
+    export interface GetDeploymentOptionsParams {
+        /**
+         * Specifies the scenario for which to retrieve default deployment options.
+         * Deployment (default): Returns DacFx native defaults (for Publish operations).
+         * SchemaCompare: Returns modified defaults.
+         */
+        scenario?: DeploymentScenario;
+    }
+
+    /**
+     * Result containing deployment options for the requested scenario
+     */
+    export interface GetDeploymentOptionsResult extends ResultStatus {
+        defaultDeploymentOptions: DeploymentOptions;
+    }
+
     export interface ExportParams {
         databaseName: string;
         packageFilePath: string;
@@ -1422,6 +1449,11 @@ declare module "vscode-mssql" {
     export interface ValidateStreamingJobParams {
         packageFilePath: string;
         createStreamingJobTsql: string;
+    }
+
+    export interface ParseTSqlScriptParams {
+        filePath: string;
+        databaseSchemaProvider: string;
     }
 
     export interface SchemaCompareConnectionInfo {
