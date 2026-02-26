@@ -10,8 +10,9 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
+- 0.3.0: Add support for Oracle databases
 - 0.2.1: Add functionality to interrupt the wizard.
-- 0.2.0: Add support for MariaDB / MySQL. Add docker/podman test infrastructure for manual validation.
+- 0.2.0: Add support for MariaDB / MySQL
 
 ## Features
 
@@ -19,10 +20,10 @@ The wizard executes the following steps:
 
 1. **Select Connection**: Choose a SQL Server database connection
 2. **Select Database**: Choose the target database where external tables will be created
-3. **Select Provider Type**: Choose SQL Server or MariaDB/MySQL discovery mode
+3. **Select Provider Type**: Choose SQL Server, MariaDB/MySQL, or Oracle discovery mode
 4. **Select Destination Schema**: Choose the schema for created external tables (default: `dbo`)
 5. **Select External Data Source**: Choose an existing PolyBase external data source
-6. **Discover External Databases**: Select one or more external databases to connect to
+6. **Discover External Databases**: Select one or more external databases/schemas to connect to
 7. **Select Tables/Views**: Choose which tables and views you want to virtualize
 8. **Generate Scripts**: The wizard automatically detects the schemas of external objects and generates corresponding `CREATE EXTERNAL TABLE` statements
 9. **Review Scripts**: The generated DDL is displayed in a new SQL editor tab
@@ -67,22 +68,59 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 
 ## Supported External Data Sources
 
-- **SQL Server external data sources** via PolyBase
-- **MariaDB/MySQL external data sources** via PolyBase + ODBC
+- **SQL Server** external data sources via PolyBase (using `sqlserver://` location)
+- **MariaDB/MySQL** external data sources via PolyBase + ODBC (using `odbc://` location)
+- **Oracle** external data sources via PolyBase (using `oracle://` location, see [Oracle PolyBase configuration](https://learn.microsoft.com/en-us/sql/relational-databases/polybase/polybase-configure-oracle?view=sql-server-ver17))
 
 Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
 
+### Oracle-Specific Notes
+
+When working with Oracle external data sources:
+
+- Use the built-in `oracle://` connection string format (e.g., `oracle://hostname:1521`)
+- In Oracle, a **schema** equals a **user**. The wizard discovers schemas by querying `ALL_USERS`
+- System schemas (SYS, SYSTEM, etc.) are automatically filtered out
+- Oracle table names are typically uppercase (e.g., `AVIATION.AIRPLANE`)
+- The `LOCATION` in generated external tables uses the format: `SCHEMA.TABLE` (e.g., `AVIATION.AIRPLANE`)
+
+Example Oracle external data source creation:
+
+```sql
+CREATE DATABASE SCOPED CREDENTIAL OracleCredential
+WITH IDENTITY = 'SYSTEM', SECRET = 'YourPassword';
+
+CREATE EXTERNAL DATA SOURCE Oracle_Aviation
+WITH (
+    LOCATION = 'oracle://localhost:1521',
+    CREDENTIAL = OracleCredential
+);
+```
+
 ## Test Infrastructure
 
-See [tst/README.md](tst/README.md) for a Docker/Podman compose environment with SQL Server (PolyBase), a dummy SQL Server, and a MariaDB instance.
+See [tst/README.md](tst/README.md) for a Docker/Podman compose environment with:
+- SQL Server (PolyBase enabled)
+- Sample SQL Server database (Movies)
+- MariaDB instance (Books database)
+- Oracle Free instance (Aviation database)
 
 ## Note on Temporary Tables
 
 During the discovery process, the wizard creates temporary external tables (with prefix `DVW_`):
 
-- `DVW_sys_databases_*`: For discovering available external databases
-- `DVW_*_sys_tables_*`: For discovering tables in external databases
-- `DVW_*_sys_views_*`: For discovering views in external databases
-- `DVW_*_sys_schemas_*`: For discovering schema information
+- **For SQL Server**:
+  - `DVW_sys_databases_*`: For discovering available external databases
+  - `DVW_*_sys_tables_*`: For discovering tables in external databases
+  - `DVW_*_sys_views_*`: For discovering views in external databases
+  - `DVW_*_sys_schemas_*`: For discovering schema information
+
+- **For MariaDB/MySQL**:
+  - `DVW_information_schema_schemata_*`: For discovering available databases
+  - `DVW_*_information_schema_tables_*`: For discovering tables and views
+
+- **For Oracle**:
+  - `DVW_ALL_USERS_*`: For discovering available schemas/users
+  - `DVW_*_ALL_TABLES_*`: For discovering tables in schemas
 
 These tables are automatically removed at the end of the process. They are temporary and exist solely to support the discovery process.

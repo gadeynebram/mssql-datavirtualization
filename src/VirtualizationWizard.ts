@@ -3,6 +3,7 @@ import { IExtension, IConnectionInfo } from 'vscode-mssql';
 import { ISchemaProvider } from './providers/ISchemaProvider';
 import { MSSQLSchemaProvider } from './providers/MSSQLSchemaProvider';
 import { MariaDBSchemaProvider } from './providers/MariaDBSchemaProvider';
+import { OracleSchemaProvider } from './providers/OracleSchemaProvider';
 import { TableViewItem } from './providers/types';
 
 /**
@@ -220,6 +221,11 @@ export class VirtualizationWizard implements vscode.Disposable {
         label: 'MariaDB / MySQL',
         description: 'For MariaDB or MySQL external data sources via ODBC',
         value: 'mariadb'
+      },
+      {
+        label: 'Oracle',
+        description: 'For Oracle external data sources using oracle:// connection',
+        value: 'oracle'
       }
     ];
 
@@ -242,6 +248,9 @@ export class VirtualizationWizard implements vscode.Disposable {
     if (selectedProvider.value === 'mariadb') {
       console.log('Initializing MariaDBSchemaProvider');
       this.provider = new MariaDBSchemaProvider(this.API, this.Connection, this.ConnectionUri);
+    } else if (selectedProvider.value === 'oracle') {
+      console.log('Initializing OracleSchemaProvider');
+      this.provider = new OracleSchemaProvider(this.API, this.Connection, this.ConnectionUri);
     } else {
       console.log('Initializing MSSQLSchemaProvider');
       this.provider = new MSSQLSchemaProvider(this.API, this.Connection, this.ConnectionUri);
