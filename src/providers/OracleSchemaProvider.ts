@@ -21,7 +21,7 @@ export class OracleSchemaProvider implements ISchemaProvider {
   private connectionUri: string | undefined;
   private selectedDatabase: string | undefined;
   private discoveryTables: string[] = [];
-  private oracleDatabaseName: string | undefined;
+  private credentialIdentity: string | undefined;
 
   constructor(api: IExtension, connection: IConnectionInfo, connectionUri: string) {
     this.api = api;
@@ -68,7 +68,7 @@ export class OracleSchemaProvider implements ISchemaProvider {
     const localSchema = 'dbo';
     const localName = `DVW_ALL_USERS_${suffix}`;
     const localFullName = `[${localSchema}].[${localName}]`;
-    const remote = `${this.oracleDatabaseName}.SYS.ALL_USERS`;
+    const remote = `${this.credentialIdentity}.SYS.ALL_USERS`;
 
     await this.dropExternalTable(localSchema, localName);
     const created = await this.createExternalTableWithDetection(localFullName, remote, dataSource);
@@ -183,7 +183,7 @@ ORDER BY TABLE_NAME`;
 
   generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string, localSchema?: string): string {
     // Oracle: LOCATION = 'DATABASE.SCHEMA.TABLE' (3-part name required)
-    const remote = `${this.oracleDatabaseName}.${item.schema}.${item.name}`;
+    const remote = `${this.credentialIdentity}.${item.schema}.${item.name}`;
     const destSchema = localSchema || 'dbo';
     const localName = item.name;
     const localFullName = `[${destSchema}].[${localName}]`;
@@ -217,7 +217,7 @@ ORDER BY TABLE_NAME`;
     this.connectionUri = undefined;
     this.selectedDatabase = undefined;
     this.discoveryTables = [];
-    this.oracleDatabaseName = undefined;
+    this.credentialIdentity = undefined;
   }
 
   // Private helper methods
@@ -229,24 +229,29 @@ ORDER BY TABLE_NAME`;
    * the database name per Microsoft documentation.
    */
   private async extractOracleDatabaseName(dataSource: string): Promise<void> {
-    // Always prompt user for the Oracle database/PDB name since it's not in the 
-    // external data source location string (which is just oracle://hostname:port)
-    const userInput = await vscode.window.showInputBox({
-      prompt: 'Enter the Oracle database/PDB name for 3-part table locations (e.g., Aviation, FREEPDB1)',
-      placeHolder: 'Aviation',
-      ignoreFocusOut: true,
-      validateInput: (value: string) => {
-        if (!value || value.trim().length === 0) {
-          return 'Database name is required for Oracle external tables';
-        }
-        return null;
-      }
-    });
+    if (!this.connectionSharingService) {
+      throw new Error('extractOracleDatabaseName: ConnectionSharingService is not set!');
+    }
+
+    // Query for the credential identity associated with this external data source
+    const credentialQuery = `use ${this.selectedDatabase}; 
+select dsc.credential_identity
+from sys.external_data_sources ds
+join sys.database_scoped_credentials dsc on dsc.credential_id = ds.credential_id
+where ds.name = '${dataSource}'`;
     
-    if (userInput) {
-      this.oracleDatabaseName = userInput.trim();
+    const ownerUri = await this.getFreshConnectionUri();
+    const credResult = await this.connectionSharingService.executeSimpleQuery(ownerUri, credentialQuery);
+    
+    if (credResult.rows && credResult.rows.length > 0) {
+      this.credentialIdentity = credResult.rows[0][0].displayValue;
+    }
+
+    // Add VSCode notification reporting the credential identity (Oracle user) being used for schema discovery
+    if (this.credentialIdentity) {
+      vscode.window.showInformationMessage(`DVW: Using credential identity '${this.credentialIdentity}' for Oracle schema discovery.`);
     } else {
-      throw new Error('Oracle database/PDB name is required for creating external tables with 3-part LOCATION format');
+      vscode.window.showWarningMessage(`DVW: Could not determine credential identity for data source '${dataSource}'. Schema discovery may fail.`);
     }
   }
 
@@ -265,7 +270,7 @@ ORDER BY TABLE_NAME`;
     // For each schema, create external table to ALL_TABLES with 3-part name
     const localName = `DVW_${safeDbName}_ALL_TABLES_${suffix}`;
     const localFullName = `[${localSchema}].[${localName}]`;
-    const remote = `${this.oracleDatabaseName}.SYS.ALL_TABLES`;
+    const remote = `${this.credentialIdentity}.SYS.ALL_TABLES`;
 
     await this.dropExternalTable(localSchema, localName);
     const created = await this.createExternalTableWithDetection(localFullName, remote, dataSource);
