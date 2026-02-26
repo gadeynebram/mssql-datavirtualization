@@ -114,7 +114,7 @@ export class VirtualizationWizard implements vscode.Disposable {
     return mssqlExt;
   }
 
-  private async GetMSSQLAPI(): Promise<void> {
+  async GetMSSQLAPI(): Promise<void> {
     let MSSQLExtension = this.CheckMSSQLExtension();
     await MSSQLExtension.activate();
     this.API = MSSQLExtension.exports as IExtension;

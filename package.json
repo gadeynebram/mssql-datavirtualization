@@ -28,16 +28,58 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:mssql-datavirtualization.virtualizeDataWizard"
+    "onCommand:mssql-datavirtualization.virtualizeDataWizard",
+    "onView:mssqlDataVirtualization"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "mssql-datavirtualization.virtualizeDataWizard",
-        "title": "Virtualize Data Wizard"
+        "title": "Virtualize Data Wizard (Classic)",
+        "category": "MSSQL Data Virtualization"
+      },
+      {
+        "command": "mssql-datavirtualization.openWizardWebview",
+        "title": "Start Data Virtualization Wizard",
+        "category": "MSSQL Data Virtualization",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "mssql-datavirtualization.refreshView",
+        "title": "Refresh",
+        "category": "MSSQL Data Virtualization",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mssqlDataVirtualizationContainer",
+          "title": "MSSQL Data Virtualization",
+          "icon": "resources/wizard-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "mssqlDataVirtualizationContainer": [
+        {
+          "id": "mssqlDataVirtualization",
+          "name": "Wizard",
+          "icon": "resources/wizard-icon.svg",
+          "contextualTitle": "Data Virtualization"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "mssql-datavirtualization.refreshView",
+          "when": "view == mssqlDataVirtualization",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
