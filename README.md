@@ -10,6 +10,7 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
+- 0.3.1: Add webview-based wizard UI with sidebar icon
 - 0.3.0: Add support for Oracle external datasources + update vscode-mssql typing to 1.40
 - 0.2.1: Add functionality to interrupt the wizard.
 - 0.2.0: Add support for MariaDB / MySQL external datasources
@@ -32,11 +33,19 @@ The wizard executes the following steps:
 
 ## Usage
 
-To start the wizard:
+There are now two ways to start the wizard:
+
+### Option 1: Sidebar Icon (New!)
+
+1. Click on the **MSSQL Data Virtualization** icon in the Activity Bar (left sidebar)
+2. Click **"Start Data Virtualization Wizard"** in the sidebar view
+3. Use the webview-based wizard with Previous/Next/Complete buttons to navigate through the steps
+
+### Option 2: Command Palette (Classic)
 
 1. Press **CTRL + Shift + P** (or **CMD + Shift + P** on macOS) to open the Command Palette
-2. Type and select **"Virtualize Data Wizard"**
-3. Follow the step-by-step wizard to generate your external table scripts
+2. Type and select **"Virtualize Data Wizard (Classic)"** or **"Start Data Virtualization Wizard"**
+3. Follow the step-by-step wizard using VS Code's native quick-pick dialogs
 
 ## How It Works
 
