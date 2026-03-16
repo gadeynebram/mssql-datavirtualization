@@ -22,7 +22,7 @@
     "external tables"
   ],
   "engines": {
-    "vscode": "^1.109.0"
+    "vscode": "^1.110.0"
   },
   "categories": [
     "Other"
