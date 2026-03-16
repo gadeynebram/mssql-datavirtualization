@@ -1,6 +1,6 @@
 # MSSQL Data Virtualization Wizard
 
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.109.0%2B-blue)](https://code.visualstudio.com/)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.110.0%2B-blue)](https://code.visualstudio.com/)
 [![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.40.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/v1.40.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
