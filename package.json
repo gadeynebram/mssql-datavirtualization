@@ -48,7 +48,7 @@
   "devDependencies": {
     "@types/vscode": "^1.110.0",
     "@vscode/vsce": "^3.2.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   },
   "extensionDependencies": [
     "ms-mssql.mssql"
