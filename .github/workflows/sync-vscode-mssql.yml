@@ -1,0 +1,116 @@
+name: Sync vscode-mssql Typings
+
+on:
+  schedule:
+    # Weekly on Monday at 02:00 UTC
+    - cron: '0 2 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest vscode-mssql release tag
+        id: latest_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.getLatestRelease({
+              owner: 'microsoft',
+              repo: 'vscode-mssql'
+            });
+
+            const tag = data.tag_name;
+            core.setOutput('tag', tag);
+            core.info(`Latest upstream tag: ${tag}`);
+
+      - name: Read current README MSSQL version
+        id: current_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_tag=$(grep -oE 'vscode-mssql/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+' README.md | head -n 1 | sed 's#vscode-mssql/releases/tag/##')
+          if [ -z "${current_tag}" ]; then
+            echo "Could not determine current MSSQL release tag from README.md"
+            exit 1
+          fi
+          echo "tag=${current_tag}" >> "$GITHUB_OUTPUT"
+          echo "Current README tag: ${current_tag}"
+
+      - name: Determine if update is needed
+        id: should_update
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest="${{ steps.latest_release.outputs.tag }}"
+          current="${{ steps.current_version.outputs.tag }}"
+
+          if [ "${latest}" = "${current}" ]; then
+            echo "result=false" >> "$GITHUB_OUTPUT"
+            echo "No update needed. Current tag matches latest tag (${latest})."
+          else
+            echo "result=true" >> "$GITHUB_OUTPUT"
+            echo "Update needed: ${current} -> ${latest}"
+          fi
+
+      - name: Download latest upstream typing file
+        if: steps.should_update.outputs.result == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.latest_release.outputs.tag }}"
+          url="https://raw.githubusercontent.com/microsoft/vscode-mssql/${tag}/extensions/mssql/typings/vscode-mssql.d.ts"
+
+          curl -fsSL "${url}" -o typings/vscode-mssql.d.ts
+
+          # Ensure we did not download an empty file
+          if [ ! -s typings/vscode-mssql.d.ts ]; then
+            echo "Downloaded typings/vscode-mssql.d.ts is empty"
+            exit 1
+          fi
+
+      - name: Update README MSSQL badge and release link
+        if: steps.should_update.outputs.result == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.latest_release.outputs.tag }}"
+          version="${tag#v}"
+
+          sed -E -i "s#MSSQL%20Extension-v[0-9]+\.[0-9]+\.[0-9]+%2B-blue#MSSQL%20Extension-v${version}%2B-blue#g" README.md
+          sed -E -i "s#github.com/microsoft/vscode-mssql/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+#github.com/microsoft/vscode-mssql/releases/tag/${tag}#g" README.md
+
+      - name: Create pull request
+        if: steps.should_update.outputs.result == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: sync vscode-mssql ${{ steps.latest_release.outputs.tag }}"
+          branch: "githubaction/mssql-vscode/${{ steps.latest_release.outputs.tag }}"
+          title: "chore: sync vscode-mssql to ${{ steps.latest_release.outputs.tag }}"
+          body: |
+            Automated weekly sync detected a new `microsoft/vscode-mssql` release.
+
+            ## Changes
+            - Updated `typings/vscode-mssql.d.ts` from upstream tagged source
+            - Updated MSSQL badge and release link in `README.md`
+
+            ## Validation checklist
+            - [ ] Confirm TypeScript compile passes
+            - [ ] Confirm README badge version and release link match the same upstream tag
+
+            @copilot Please review compatibility impact for the updated typing file.
+          labels: |
+            dependencies
+            automation
+          assignees: |
+            gadeynebram
+          reviewers: |
+            gadeynebram
