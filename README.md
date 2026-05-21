@@ -10,6 +10,7 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
+- 0.3.3: Maintenance release — dependency updates (VS Code 1.120, @types/vscode 1.120, vscode-mssql typings v1.42.2)
 - 0.3.2: TypeScript 6.0.2 upgrade with tsconfig moduleResolution fix, updated @types/vscode to 1.116.0
 - 0.3.1: Maintenance release with dependency and compatibility updates (VS Code 1.110 support, @types/vscode 1.110, underscore and undici updates)
 - 0.3.0: Add support for Oracle external datasources + update vscode-mssql typing to 1.40
