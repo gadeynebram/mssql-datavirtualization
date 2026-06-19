@@ -190,11 +190,65 @@ ORDER BY s.name, v.name`;
     const lines: string[] = [];
     lines.push(`-- External ${item.type === 'U' ? 'Table' : 'View'}: ${remote}`);
     lines.push(`CREATE EXTERNAL TABLE ${localFullName}`);
-    lines.push(detectedSchema);
+    lines.push(this.formatSchemaColumns(detectedSchema));
     lines.push(`WITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`);
     lines.push('');
     
     return lines.join('\n');
+  }
+
+  private formatSchemaColumns(schemaStr: string): string {
+    // Input: ([col1] INT NOT NULL, [col2] DECIMAL(18,2), ...)
+    // Output: (\n    [col1] INT NOT NULL,\n    [col2] DECIMAL(18,2),\n    ...\n)
+    const trimmed = schemaStr.trim();
+    if (!trimmed.startsWith('(') || !trimmed.endsWith(')')) {
+      return schemaStr; // fallback if format is unexpected
+    }
+    
+    const inner = trimmed.substring(1, trimmed.length - 1);
+    const columns = this.splitColumnsPreservingParentheses(inner);
+    
+    if (columns.length === 0) {
+      return schemaStr;
+    }
+    
+    const formattedLines = ['('];
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i].trim();
+      const isLast = i === columns.length - 1;
+      formattedLines.push(`    ${col}${isLast ? '' : ','}`);
+    }
+    formattedLines.push(')');
+    
+    return formattedLines.join('\n');
+  }
+
+  private splitColumnsPreservingParentheses(str: string): string[] {
+    const columns: string[] = [];
+    let current = '';
+    let parenDepth = 0;
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str[i];
+      if (char === '(') {
+        parenDepth++;
+        current += char;
+      } else if (char === ')') {
+        parenDepth--;
+        current += char;
+      } else if (char === ',' && parenDepth === 0) {
+        columns.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    if (current) {
+      columns.push(current);
+    }
+    
+    return columns;
   }
 
   async cleanupDiscoveryTables(): Promise<void> {
