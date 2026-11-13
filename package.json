@@ -39,6 +39,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "test": "npm run compile && node --test tst/sharedConnections.test.cjs",
     "watch": "tsc -watch -p ./",
     "package": "vsce package"
   },
