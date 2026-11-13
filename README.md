@@ -1,7 +1,7 @@
 # MSSQL Data Virtualization Wizard
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.145.0%2B-blue)](https://code.visualstudio.com/)
-[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.45.1%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/mssql-v1.45.1)
+[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.47.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/mssql-v1.47.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This VS Code extension provides a step-by-step wizard to connect external SQL Server databases via PolyBase and automatically generate `CREATE EXTERNAL TABLE` statements.
@@ -10,6 +10,7 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
+- 0.5.0: Migrate to the authenticated MSSQL Shared Connections API v1 (`getSharedConnectionsApi(1)`), replacing retired connection APIs ([#55](https://github.com/gadeynebram/mssql-datavirtualization/issues/55)).
 - 0.4.1: Maintenance release — dependency and compatibility updates (TypeScript 7.0.2, VS Code 1.136, @types/vscode 1.136, vscode-mssql v1.45.1), updated typings and npm audit fixes
 - 0.4.0: Improved SQL formatting — refactored `CREATE EXTERNAL TABLE` column definitions to display one column per line with proper indentation; dependency updates (VS Code 1.125, @types/vscode 1.125, vscode-mssql v1.43.0)
 - 0.3.3: Maintenance release — dependency updates (VS Code 1.120, @types/vscode 1.120, vscode-mssql typings v1.42.2)
@@ -43,6 +44,10 @@ To start the wizard:
 2. Type and select **"Virtualize Data Wizard"**
 3. Follow the step-by-step wizard to generate your external table scripts
 
+The wizard asks VS Code for permission to access MSSQL shared connections. Select a saved MSSQL connection or the active editor's connection, then choose the target database. Access can be revoked from VS Code's Accounts menu.
+
+To create a connection, choose **New MSSQL connection**, finish creating it in MSSQL, then run **Virtualize Data Wizard** again. The wizard reports an upgrade requirement if the installed MSSQL extension does not expose `getSharedConnectionsApi(1)`; it does not fall back to retired APIs.
+
 ## How It Works
 
 The wizard leverages PolyBase schema detection:
@@ -55,7 +60,7 @@ The wizard leverages PolyBase schema detection:
 ## Prerequisites
 
 - **VS Code 1.70.0 or higher**
-- **MSSQL extension** (ms-mssql.mssql) - this is a required dependency. This extension manages database connections. For setup instructions, see the [vscode-mssql repository](https://github.com/Microsoft/vscode-mssql)
+- **MSSQL extension** (ms-mssql.mssql) with **Shared Connections API v1** (`IExtension.getSharedConnectionsApi(1)`) - this is a required dependency. This extension manages database connections. For setup instructions, see the [vscode-mssql repository](https://github.com/Microsoft/vscode-mssql)
 - **SQL Server 2016 or higher** with PolyBase installed and configured. For PolyBase setup instructions, see the [PolyBase guide](https://learn.microsoft.com/en-us/sql/relational-databases/polybase/polybase-guide?view=sql-server-ver17)
 - **Existing PolyBase external data source** configured in the target database. For external data source configuration, see [CREATE EXTERNAL DATA SOURCE](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-external-data-source-transact-sql)
 - **Network access** from your SQL Server to the external database

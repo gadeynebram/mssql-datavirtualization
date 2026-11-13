@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { IExtension, IConnectionInfo } from 'vscode-mssql';
+import { IExtension, ISharedConnectionsService } from 'vscode-mssql';
+import { SharedConnectionClient } from './SharedConnectionClient';
 import { ISchemaProvider } from './providers/ISchemaProvider';
 import { MSSQLSchemaProvider } from './providers/MSSQLSchemaProvider';
 import { MariaDBSchemaProvider } from './providers/MariaDBSchemaProvider';
@@ -11,10 +12,8 @@ import { TableViewItem } from './providers/types';
  * Orchestrates the workflow: connection → database → provider → data source → discovery → script generation.
  */
 export class VirtualizationWizard implements vscode.Disposable {
-  API: IExtension | undefined;
-  Connection: IConnectionInfo | undefined;
-  ConnectionUri: string | undefined;
-  private readonly ExtensionId: string = 'gadeynebram.mssql-datavirtualization';
+  API: ISharedConnectionsService | undefined;
+  Connection: SharedConnectionClient | undefined;
   SelectedDatabase: string | undefined;
   SelectedSchema: string | undefined;
   private provider: ISchemaProvider | undefined;
@@ -33,7 +32,6 @@ export class VirtualizationWizard implements vscode.Disposable {
       this.provider = undefined;
     }
     this.Connection = undefined;
-    this.ConnectionUri = undefined;
     this.API = undefined;
   }
 
@@ -71,7 +69,7 @@ export class VirtualizationWizard implements vscode.Disposable {
   async RunWizard() {
     await this.GetMSSQLAPI();
     await this.PromptForConnection();
-    if(!this.ConnectionUri) {
+    if(!this.Connection) {
       return;
     }
     await this.PromptForDatabase();
@@ -117,10 +115,11 @@ export class VirtualizationWizard implements vscode.Disposable {
   private async GetMSSQLAPI(): Promise<void> {
     let MSSQLExtension = this.CheckMSSQLExtension();
     await MSSQLExtension.activate();
-    this.API = MSSQLExtension.exports as IExtension;
-    if (!this.API) {
-      throw new Error("MSSQL Extension API is not available");
+    const extensionApi = MSSQLExtension.exports as IExtension;
+    if (typeof extensionApi?.getSharedConnectionsApi !== 'function') {
+      throw new Error('Update the MSSQL extension to a version that supports getSharedConnectionsApi(1).');
     }
+    this.API = extensionApi.getSharedConnectionsApi(1);
   }
 
   private async PromptForConnection(): Promise<void> {
@@ -128,18 +127,46 @@ export class VirtualizationWizard implements vscode.Disposable {
       if (!this.API) {
         throw new Error("PromptForConnection: API is not set!!");
       }
-      this.Connection = await this.API.promptForConnection();
-      while (!this.Connection) {
-        // User cancelled connection prompt, show confirmation
-        const shouldQuit = await this.confirmWizardCancellation();
-        if (shouldQuit) {
+      const session = await vscode.authentication.getSession(this.API.authenticationProviderId, [], {
+        createIfNone: true
+      });
+      const items: (vscode.QuickPickItem & { connectionId?: string; database?: string })[] = [];
+      if (vscode.window.activeTextEditor) {
+        const activeConnectionId = await this.API.getActiveEditorConnectionId(session.accessToken);
+        if (activeConnectionId) {
+          items.push({
+            label: 'Use active editor connection',
+            connectionId: activeConnectionId,
+            database: await this.API.getActiveDatabase(session.accessToken)
+          });
+        }
+      }
+      const profiles = vscode.workspace.getConfiguration('mssql').get<{
+        id?: string; profileName?: string; server?: string; database?: string;
+      }[]>('connections', []);
+      for (const profile of profiles) {
+        if (profile.id) {
+          items.push({
+            label: profile.profileName || profile.server || profile.id,
+            description: profile.database || profile.server,
+            connectionId: profile.id
+          });
+        }
+      }
+      items.push({ label: '$(add) New MSSQL connection' });
+      let selected = await vscode.window.showQuickPick(items, { placeHolder: 'Select a SQL Server connection' });
+      while (!selected) {
+        if (await this.confirmWizardCancellation()) {
           return;
         }
-        // User chose not to quit, re-prompt
-        this.Connection = await this.API.promptForConnection();
+        selected = await vscode.window.showQuickPick(items, { placeHolder: 'Select a SQL Server connection' });
       }
-      console.log(`Selected server: ${this.Connection.server}`);
-      this.ConnectionUri = await this.API.connect(this.Connection);
+      if (!selected.connectionId) {
+        await vscode.commands.executeCommand('mssql.addObjectExplorer');
+        vscode.window.showInformationMessage('Create a connection in MSSQL, then run Virtualize Data Wizard again.');
+        return;
+      }
+      this.Connection = new SharedConnectionClient(this.API, selected.connectionId, selected.database);
     } catch (err) {
       throw new Error(`Could not get a connection: ${err}`);
     }
@@ -150,15 +177,13 @@ export class VirtualizationWizard implements vscode.Disposable {
       if (!this.API) {
         throw new Error("PromptForDatabase: API is not set!!");
       }
-      if (!this.ConnectionUri) {
-        throw new Error("PromptForDatabase: ConnectionURI is not set!!");
-      }
       if (!this.Connection) {
         throw new Error("PromptForDatabase: Connection is not set!!");
       }
-      let promptRequired: boolean = this.Connection.database.length == 0;
+      const currentDatabase = await this.Connection.getDatabase();
+      let promptRequired: boolean = !currentDatabase;
       if (!promptRequired) {
-        let answer = await vscode.window.showQuickPick(["Yes", "No"], { placeHolder: `Work with the current database ${this.Connection?.database}?` });
+        let answer = await vscode.window.showQuickPick(["Yes", "No"], { placeHolder: `Work with the current database ${currentDatabase}?` });
         if (!answer) {
           // User pressed ESC, show confirmation
           const shouldQuit = await this.confirmWizardCancellation();
@@ -170,11 +195,11 @@ export class VirtualizationWizard implements vscode.Disposable {
         }
         promptRequired = answer == "No";
         if (answer === 'Yes') {
-          this.SelectedDatabase = this.Connection.database && this.Connection.database.length > 0 ? this.Connection.database : 'master';
+          this.SelectedDatabase = currentDatabase;
         }
       }
       if (promptRequired) {
-        const databases = await this.API.listDatabases(this.ConnectionUri);
+        const databases = await this.Connection.listDatabases();
         if (!databases || databases.length === 0) {
           throw new Error('No databases found.');
         }
@@ -202,9 +227,6 @@ export class VirtualizationWizard implements vscode.Disposable {
     }
     if (!this.Connection) {
       throw new Error('InitializeProvider: Connection is not set!');
-    }
-    if (!this.ConnectionUri) {
-      throw new Error('InitializeProvider: ConnectionUri is not set!');
     }
     if (!this.SelectedDatabase) {
       throw new Error('InitializeProvider: SelectedDatabase is not set!');
@@ -247,13 +269,13 @@ export class VirtualizationWizard implements vscode.Disposable {
     // Create the appropriate provider based on user selection
     if (selectedProvider.value === 'mariadb') {
       console.log('Initializing MariaDBSchemaProvider');
-      this.provider = new MariaDBSchemaProvider(this.API, this.Connection, this.ConnectionUri);
+      this.provider = new MariaDBSchemaProvider(this.Connection);
     } else if (selectedProvider.value === 'oracle') {
       console.log('Initializing OracleSchemaProvider');
-      this.provider = new OracleSchemaProvider(this.API, this.Connection, this.ConnectionUri);
+      this.provider = new OracleSchemaProvider(this.Connection);
     } else {
       console.log('Initializing MSSQLSchemaProvider');
-      this.provider = new MSSQLSchemaProvider(this.API, this.Connection, this.ConnectionUri);
+      this.provider = new MSSQLSchemaProvider(this.Connection);
     }
 
     await this.provider.initialize(this.SelectedDatabase);
@@ -296,8 +318,8 @@ export class VirtualizationWizard implements vscode.Disposable {
       throw new Error('EnsureSchemaExists: Required properties not initialized');
     }
 
-    const connectionSharingService = this.API.connectionSharing;
-    if (!connectionSharingService || !this.ConnectionUri) {
+    const connectionSharingService = this.Connection;
+    if (!connectionSharingService) {
       throw new Error('EnsureSchemaExists: ConnectionSharingService not available');
     }
 
@@ -305,7 +327,7 @@ export class VirtualizationWizard implements vscode.Disposable {
       // Check if schema exists
       const checkQuery = `use ${this.SelectedDatabase}; 
 SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
-      const result = await connectionSharingService.executeSimpleQuery(this.ConnectionUri, checkQuery);
+      const result = await connectionSharingService.executeSimpleQuery(this.SelectedDatabase, checkQuery);
       
       const count = result.rows[0][0].displayValue;
       
@@ -313,7 +335,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
         // Schema doesn't exist, create it
         console.log(`Schema '${this.SelectedSchema}' does not exist. Creating...`);
         const createQuery = `CREATE SCHEMA [${this.SelectedSchema}]`;
-        await connectionSharingService.executeSimpleQuery(this.ConnectionUri, createQuery);
+        await connectionSharingService.executeSimpleQuery(this.SelectedDatabase, createQuery);
         vscode.window.showInformationMessage(`Schema '${this.SelectedSchema}' created successfully.`);
       } else {
         console.log(`Schema '${this.SelectedSchema}' already exists.`);
