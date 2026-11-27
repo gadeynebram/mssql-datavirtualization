@@ -234,14 +234,14 @@ test('wizard returns to provider selection when the IRIS namespace prompt is can
 test('wizard prompts for the Oracle service name and initializes the selected provider', async () => {
   const { wizard, oracleProviders } = createWizardFixture({
     pick: items => items.find(item => item.value === 'oracle'),
-    namespaceInput: ' FACPPROD '
+    namespaceInput: ' SERVICE_NAME '
   });
   wizard.API = {};
   wizard.Connection = {};
   wizard.SelectedDatabase = 'DataFederation';
   await wizard.InitializeProvider();
   assert.deepEqual(oracleProviders.map(({ serviceName, database }) => ({ serviceName, database })), [
-    { serviceName: 'FACPPROD', database: 'DataFederation' }
+    { serviceName: 'SERVICE_NAME', database: 'DataFederation' }
   ]);
 });
 
@@ -254,22 +254,22 @@ test('Oracle provider uses the service name in discovery and generated LOCATION 
         throw new Error('The detected external table schema is: ([USERNAME] NVARCHAR(128) NOT NULL).');
       }
       if (query.includes('SELECT USERNAME')) {
-        return { rows: [[{ displayValue: 'GROEI' }]] };
+        return { rows: [[{ displayValue: 'SCHEMA_NAME' }]] };
       }
       return { rows: [] };
     }
   };
   const { OracleSchemaProvider } = loadModule('providers/OracleSchemaProvider.js', {});
-  const provider = new OracleSchemaProvider(client, 'FACPPROD');
+  const provider = new OracleSchemaProvider(client, 'SERVICE_NAME');
   await provider.initialize('DataFederation');
 
-  assert.deepEqual(await provider.listExternalDatabases('GROEI_DS'), ['GROEI']);
-  assert.ok(queries.some(query => query.includes("LOCATION = N'[FACPPROD].SYS.ALL_USERS'")));
+  assert.deepEqual(await provider.listExternalDatabases('SCHEMA_NAME_DS'), ['SCHEMA_NAME']);
+  assert.ok(queries.some(query => query.includes("LOCATION = N'[SERVICE_NAME].SYS.ALL_USERS'")));
   assert.ok(!queries.some(query => query.includes('credential_identity')));
 
-  const item = { externalDb: 'GROEI', schema: 'GROEI', name: 'PATIENT', type: 'U', displayLabel: '' };
-  assert.equal(provider.getRemoteLocation(item), '[FACPPROD].GROEI.PATIENT');
-  assert.match(provider.generateCreateScript(item, '([ID] INT)', 'GROEI_DS'), /LOCATION = N'\[FACPPROD\]\.GROEI\.PATIENT'/);
+  const item = { externalDb: 'SCHEMA_NAME', schema: 'SCHEMA_NAME', name: 'PATIENT', type: 'U', displayLabel: '' };
+  assert.equal(provider.getRemoteLocation(item), '[SERVICE_NAME].SCHEMA_NAME.PATIENT');
+  assert.match(provider.generateCreateScript(item, '([ID] INT)', 'SCHEMA_NAME_DS'), /LOCATION = N'\[SERVICE_NAME\]\.SCHEMA_NAME\.PATIENT'/);
 });
 
 for (const providerName of ['MSSQLSchemaProvider', 'MariaDBSchemaProvider', 'OracleSchemaProvider']) {
