@@ -106,7 +106,7 @@ test('active editor database takes precedence over the saved profile database', 
   assert.deepEqual(calls[0], ['connect', 'token-1', 'profile-id', 'EditorDatabase']);
 });
 
-function createWizardFixture({ active = false, profiles = [], pick, confirmation = 'Yes' } = {}) {
+function createWizardFixture({ active = false, profiles = [], pick, confirmation = 'Yes', namespaceInput = 'SOMENAMESPACE' } = {}) {
   const clientFixture = createClientFixture();
   const api = {
     ...clientFixture.api,
@@ -114,6 +114,15 @@ function createWizardFixture({ active = false, profiles = [], pick, confirmation
     getActiveDatabase: async () => 'EditorDatabase'
   };
   const commands = [];
+  const irisProviders = [];
+  class FakeIRISSchemaProvider {
+    constructor(connection, namespace) {
+      const instance = { connection, namespace, database: undefined };
+      irisProviders.push(instance);
+      this.instance = instance;
+    }
+    async initialize(database) { this.instance.database = database; }
+  }
   const vscode = {
     extensions: { getExtension: () => ({ activate: async () => {}, exports: {
       getSharedConnectionsApi: version => { assert.equal(version, 1); return api; }
@@ -123,6 +132,7 @@ function createWizardFixture({ active = false, profiles = [], pick, confirmation
     window: {
       activeTextEditor: active ? {} : undefined,
       showQuickPick: async items => pick ? pick(items) : undefined,
+      showInputBox: async () => namespaceInput,
       showWarningMessage: async () => confirmation,
       showInformationMessage: () => {}
     },
@@ -132,9 +142,10 @@ function createWizardFixture({ active = false, profiles = [], pick, confirmation
     './SharedConnectionClient': { SharedConnectionClient: clientFixture.SharedConnectionClient },
     './providers/MSSQLSchemaProvider': {},
     './providers/MariaDBSchemaProvider': {},
-    './providers/OracleSchemaProvider': {}
+    './providers/OracleSchemaProvider': {},
+    './providers/IRISSchemaProvider': { IRISSchemaProvider: FakeIRISSchemaProvider }
   });
-  return { wizard: new VirtualizationWizard(), vscode, api, commands };
+  return { wizard: new VirtualizationWizard(), vscode, api, commands, irisProviders };
 }
 
 test('wizard obtains API v1 and can select a saved connection without an editor', async () => {
@@ -185,6 +196,32 @@ test('denied authentication prevents connection selection and queries', async ()
   assert.equal(wizard.Connection, undefined);
 });
 
+test('wizard prompts for the IRIS namespace and initializes the selected provider', async () => {
+  const { wizard, irisProviders } = createWizardFixture({
+    pick: items => items.find(item => item.value === 'iris'),
+    namespaceInput: 'SomeSchema'
+  });
+  wizard.API = {};
+  wizard.Connection = {};
+  wizard.SelectedDatabase = 'DataFederation';
+  await wizard.InitializeProvider();
+  assert.deepEqual(irisProviders.map(({ namespace, database }) => ({ namespace, database })), [
+    { namespace: 'SomeSchema', database: 'DataFederation' }
+  ]);
+});
+
+test('wizard returns to provider selection when the IRIS namespace prompt is cancelled', async () => {
+  const { wizard, irisProviders } = createWizardFixture({
+    pick: items => items.find(item => item.value === 'iris'),
+    namespaceInput: null
+  });
+  wizard.API = {};
+  wizard.Connection = {};
+  wizard.SelectedDatabase = 'DataFederation';
+  await wizard.InitializeProvider();
+  assert.equal(irisProviders.length, 0);
+});
+
 for (const providerName of ['MSSQLSchemaProvider', 'MariaDBSchemaProvider', 'OracleSchemaProvider']) {
   test(`${providerName} executes discovery using the selected database and shared client`, async () => {
     const calls = [];
@@ -204,6 +241,53 @@ for (const providerName of ['MSSQLSchemaProvider', 'MariaDBSchemaProvider', 'Ora
     provider.dispose();
   });
 }
+
+test('IRIS provider discovers schemas and generates three-part LOCATION values', async () => {
+  const calls = [];
+  const client = {
+    executeSimpleQuery: async (database, query) => {
+      calls.push([database, query]);
+      if (query.includes('SELECT name FROM sys.external_data_sources')) {
+        return { rows: [[{ displayValue: 'IRISDS' }]] };
+      }
+      if (query.includes('SELECT SCHEMA_NAME')) {
+        return { rows: [[{ displayValue: 'SomeSchema' }]] };
+      }
+      if (query.includes('SELECT TABLE_NAME, TABLE_TYPE')) {
+        return { rows: [
+          [{ displayValue: 'SomeTable' }, { displayValue: 'BASE TABLE' }],
+          [{ displayValue: 'SomeTableView' }, { displayValue: 'VIEW' }]
+        ] };
+      }
+      if (query.includes('CREATE EXTERNAL TABLE') && query.includes('NonExistingColumn')) {
+        throw new Error('The detected external table schema is: ([ID] BIGINT NOT NULL, [Name] NVARCHAR(100)).');
+      }
+      return { rows: [] };
+    }
+  };
+  const { IRISSchemaProvider } = loadModule('providers/IRISSchemaProvider.js', {});
+  const provider = new IRISSchemaProvider(client, 'SomeSchema');
+  await provider.initialize('DataFederation');
+
+  assert.deepEqual(await provider.listExternalDataSources(), ['IRISDS']);
+  assert.deepEqual(await provider.listExternalDatabases('IRISDS'), ['SomeSchema']);
+  await provider.createDiscoveryInfrastructure('IRISDS', ['SomeSchema']);
+  const items = await provider.listTablesAndViews(['SomeSchema']);
+  assert.equal(items.length, 2);
+  assert.equal(items[0].type, 'U');
+  assert.equal(items[1].type, 'V');
+  assert.equal(provider.getRemoteLocation(items[0]), 'SomeSchema.SomeSchema.SomeTable');
+
+  const detected = await provider.detectSchema('SomeSchema.SomeSchema.SomeTable', 'IRISDS');
+  assert.equal(detected, '([ID] BIGINT NOT NULL, [Name] NVARCHAR(100))');
+  const script = provider.generateCreateScript(items[0], detected, 'IRISDS', 'IRIS');
+  assert.match(script, /LOCATION = N'SomeSchema\.SomeSchema\.SomeTable'/);
+  assert.match(script, /\[IRIS\]\.\[SomeTable\]/);
+  assert.ok(calls.every(([database]) => database === 'DataFederation'));
+
+  await provider.cleanupDiscoveryTables();
+  provider.dispose();
+});
 
 test('schema creation explicitly uses the selected database for both queries', async () => {
   const { wizard, api } = createWizardFixture();

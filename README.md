@@ -27,7 +27,8 @@ The wizard executes the following steps:
 
 1. **Select Connection**: Choose a SQL Server database connection
 2. **Select Database**: Choose the target database where external tables will be created
-3. **Select Provider Type**: Choose SQL Server, MariaDB/MySQL, or Oracle discovery mode
+3. **Select Provider Type**: Choose SQL Server, MariaDB/MySQL, Oracle, or InterSystems IRIS discovery mode
+  - For IRIS, enter the namespace used as the first component of remote table locations
 4. **Select Destination Schema**: Choose the schema for created external tables (default: `dbo`)
 5. **Select External Data Source**: Choose an existing PolyBase external data source
 6. **Discover External Databases**: Select one or more external databases/schemas to connect to
@@ -82,8 +83,13 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 - **SQL Server** external data sources via PolyBase (using `sqlserver://` location)
 - **MariaDB/MySQL** external data sources via PolyBase + ODBC (using `odbc://` location)
 - **Oracle** external data sources via PolyBase (using `oracle://` location, see [Oracle PolyBase configuration](https://learn.microsoft.com/en-us/sql/relational-databases/polybase/polybase-configure-oracle?view=sql-server-ver17))
+- **InterSystems IRIS** external data sources via PolyBase and the InterSystems ODBC driver (using `odbc://` location)
 
 Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
+
+### InterSystems IRIS Notes
+
+Install the InterSystems IRIS ODBC driver on the SQL Server PolyBase host and configure an ODBC external data source with the appropriate driver and `DATABASE` connection option. The wizard prompts for the IRIS namespace, discovers schemas through `INFORMATION_SCHEMA`, and generates remote locations in `namespace.schema.table` form. For example, the supplied working location `SomeSchema.SomeSchema.SomeTable` is generated when both the namespace and schema are `SomeSchema`. Confirm the namespace and schema parts against the target IRIS configuration before executing generated scripts.
 
 ### Oracle-Specific Notes
 
@@ -133,5 +139,9 @@ During the discovery process, the wizard creates temporary external tables (with
 - **For Oracle**:
   - `DVW_ALL_USERS_*`: For discovering available schemas/users
   - `DVW_*_ALL_TABLES_*`: For discovering tables in schemas
+
+- **For InterSystems IRIS**:
+  - `DVW_IRIS_SCHEMATA_*`: For discovering schemas in the selected namespace
+  - `DVW_IRIS_*_TABLES_*`: For discovering tables and views
 
 These tables are automatically removed at the end of the process. They are temporary and exist solely to support the discovery process.

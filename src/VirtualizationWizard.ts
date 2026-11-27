@@ -5,6 +5,7 @@ import { ISchemaProvider } from './providers/ISchemaProvider';
 import { MSSQLSchemaProvider } from './providers/MSSQLSchemaProvider';
 import { MariaDBSchemaProvider } from './providers/MariaDBSchemaProvider';
 import { OracleSchemaProvider } from './providers/OracleSchemaProvider';
+import { IRISSchemaProvider } from './providers/IRISSchemaProvider';
 import { TableViewItem } from './providers/types';
 
 /**
@@ -248,6 +249,11 @@ export class VirtualizationWizard implements vscode.Disposable {
         label: 'Oracle',
         description: 'For Oracle external data sources using oracle:// connection',
         value: 'oracle'
+      },
+      {
+        label: 'InterSystems IRIS',
+        description: 'For InterSystems IRIS external data sources via ODBC',
+        value: 'iris'
       }
     ];
 
@@ -273,6 +279,23 @@ export class VirtualizationWizard implements vscode.Disposable {
     } else if (selectedProvider.value === 'oracle') {
       console.log('Initializing OracleSchemaProvider');
       this.provider = new OracleSchemaProvider(this.Connection);
+    } else if (selectedProvider.value === 'iris') {
+      const namespace = await vscode.window.showInputBox({
+        prompt: 'Enter the InterSystems IRIS namespace used in the remote LOCATION',
+        placeHolder: 'SomeSchema',
+        ignoreFocusOut: true,
+        validateInput: (value: string) => /^[a-zA-Z0-9_-]+$/.test(value.trim())
+          ? null
+          : 'Enter a namespace containing only letters, numbers, underscores, and hyphens'
+      });
+      if (!namespace?.trim()) {
+        if (await this.confirmWizardCancellation()) {
+          return;
+        }
+        return this.InitializeProvider();
+      }
+      console.log('Initializing IRISSchemaProvider');
+      this.provider = new IRISSchemaProvider(this.Connection, namespace.trim());
     } else {
       console.log('Initializing MSSQLSchemaProvider');
       this.provider = new MSSQLSchemaProvider(this.Connection);
@@ -482,7 +505,9 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
         // MariaDB: 'database.table' (lowercase, no schema layer)
         // MSSQL: '[database].[schema].[table]'
         const isMariaDB = this.provider instanceof MariaDBSchemaProvider;
-        const remote = isMariaDB 
+        const remote = this.provider instanceof IRISSchemaProvider
+          ? this.provider.getRemoteLocation(item)
+          : isMariaDB
           ? `${item.externalDb}.${item.name}` 
           : `[${item.externalDb}].[${item.schema}].[${item.name}]`;
 
