@@ -1,7 +1,7 @@
 # MSSQL Data Virtualization Wizard
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.146.0%2B-blue)](https://code.visualstudio.com/)
-[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.47.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/mssql-v1.47.0)
+[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.48.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/mssql-v1.48.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This VS Code extension provides a step-by-step wizard to connect external SQL Server databases via PolyBase and automatically generate `CREATE EXTERNAL TABLE` statements.
@@ -10,7 +10,8 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
-- 0.5.0: Migrate to the authenticated MSSQL Shared Connections API v1 (`getSharedConnectionsApi(1)`), replacing retired connection APIs ([#55](https://github.com/gadeynebram/mssql-datavirtualization/issues/55)).
+- 0.5.0: Migrate to the authenticated MSSQL Shared Connections API v1 (`getSharedConnectionsApi(1)`), replacing retired connection APIs [#55](https://github.com/gadeynebram/mssql-datavirtualization/issues/55). Add support for IRIS InterSystems
+ [#65](https://github.com/gadeynebram/mssql-datavirtualization/issues/55). Serval platform updates and update to VSCode 1.146.
 - 0.4.1: Maintenance release — dependency and compatibility updates (TypeScript 7.0.2, VS Code 1.136, @types/vscode 1.136, vscode-mssql v1.45.1), updated typings and npm audit fixes
 - 0.4.0: Improved SQL formatting — refactored `CREATE EXTERNAL TABLE` column definitions to display one column per line with proper indentation; dependency updates (VS Code 1.125, @types/vscode 1.125, vscode-mssql v1.43.0)
 - 0.3.3: Maintenance release — dependency updates (VS Code 1.120, @types/vscode 1.120, vscode-mssql typings v1.42.2)
