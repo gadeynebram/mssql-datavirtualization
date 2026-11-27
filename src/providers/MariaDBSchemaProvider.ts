@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { IExtension, IConnectionInfo, IConnectionSharingService } from 'vscode-mssql';
+import { SharedConnectionClient } from '../SharedConnectionClient';
 import { ISchemaProvider } from './ISchemaProvider';
 import { TableViewItem } from './types';
 
@@ -14,26 +14,18 @@ import { TableViewItem } from './types';
  * - Still uses error message parsing (error 105083) for schema detection
  */
 export class MariaDBSchemaProvider implements ISchemaProvider {
-  private readonly api: IExtension;
-  private readonly connection: IConnectionInfo;
-  private readonly connectionSharingService: IConnectionSharingService;
-  private readonly extensionId: string = 'gadeynebram.mssql-datavirtualization';
-  private connectionUri: string | undefined;
+  private readonly connectionSharingService: SharedConnectionClient;
   private selectedDatabase: string | undefined;
   private discoveryTables: string[] = [];
   private baseDataSourceName: string | undefined;
   private baseConnectionOptions: string | undefined;
 
-  constructor(api: IExtension, connection: IConnectionInfo, connectionUri: string) {
-    this.api = api;
-    this.connection = connection;
-    this.connectionUri = connectionUri;
-    this.connectionSharingService = api.connectionSharing;
+  constructor(connectionSharingService: SharedConnectionClient) {
+    this.connectionSharingService = connectionSharingService;
   }
 
   async initialize(database: string): Promise<void> {
     this.selectedDatabase = database;
-    await this.getFreshConnectionUri();
   }
 
   async listExternalDataSources(): Promise<string[]> {
@@ -45,8 +37,7 @@ export class MariaDBSchemaProvider implements ISchemaProvider {
     }
 
     const query = `use ${this.selectedDatabase}; SELECT name FROM sys.external_data_sources where connection_options like '%mariadb%' or connection_options like '%mysql%' order by name`;
-    const ownerUri = await this.getFreshConnectionUri();
-    const result = await this.connectionSharingService.executeSimpleQuery(ownerUri, query);
+    const result = await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, query);
     const sources = result.rows;
     
     if (sources.length === 0) {
@@ -92,8 +83,7 @@ SELECT SCHEMA_NAME
 FROM [${dvwSchemaTable.replace('.', '].[')}] 
 WHERE SCHEMA_NAME NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
 ORDER BY SCHEMA_NAME`;
-    const ownerUri = await this.getFreshConnectionUri();
-    const result = await this.connectionSharingService.executeSimpleQuery(ownerUri, query);
+    const result = await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, query);
     const rows = result.rows || [];
     
     if (rows.length === 0) {
@@ -132,8 +122,7 @@ FROM [${tablesTable.replace('.', '].[')}]
 WHERE table_schema = '${extDb}'
   AND table_type IN ('BASE TABLE', 'VIEW')
 ORDER BY table_name`;
-      const ownerUri = await this.getFreshConnectionUri();
-      const result = await this.connectionSharingService.executeSimpleQuery(ownerUri, query);
+      const result = await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, query);
 
       for (const row of result.rows) {
         const tableName = row[0].displayValue;
@@ -167,8 +156,7 @@ ORDER BY table_name`;
     const dummyCreate = `use ${this.selectedDatabase};\nCREATE EXTERNAL TABLE ${localFullName}\n(\n    [NonExistingColumn] NVARCHAR(64) NULL\n)\nWITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`;
     
     try {
-      const ownerUri = await this.getFreshConnectionUri();
-      await this.connectionSharingService.executeSimpleQuery(ownerUri, dummyCreate);
+      await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, dummyCreate);
       // Unexpected success: best-effort drop to keep environment clean
       try { await this.dropExternalTable(localSchema, tempName); } catch { /* ignore */ }
       return undefined;
@@ -266,7 +254,6 @@ ORDER BY table_name`;
   }
 
   dispose(): void {
-    this.connectionUri = undefined;
     this.selectedDatabase = undefined;
     this.discoveryTables = [];
     this.baseDataSourceName = undefined;
@@ -288,8 +275,7 @@ SELECT location, connection_options
 FROM sys.external_data_sources 
 WHERE name = '${dataSource}'`;
     
-    const ownerUri = await this.getFreshConnectionUri();
-    const result = await this.connectionSharingService.executeSimpleQuery(ownerUri, query);
+    const result = await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, query);
     
     if (result.rows.length > 0) {
       this.baseConnectionOptions = result.rows[0][1].displayValue;
@@ -329,16 +315,14 @@ WHERE name = '${dataSource}'`;
     const dummyCreate = `use ${this.selectedDatabase};\nCREATE EXTERNAL TABLE ${localFullName}\n(\n    [NonExistingColumn] NVARCHAR(64) NULL\n)\nWITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`;
     
     try {
-      const ownerUri = await this.getFreshConnectionUri();
-      await this.connectionSharingService.executeSimpleQuery(ownerUri, dummyCreate);
+      await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, dummyCreate);
       return true;
     } catch (e: any) {
       const message = (e && e.message) ? e.message as string : `${e}`;
       const detected = this.parseDetectedSchemaFromErrorMessage(message);
       if (detected) {
         const correctedCreate = `use ${this.selectedDatabase};\nCREATE EXTERNAL TABLE ${localFullName} ${detected}\nWITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`;
-        const ownerUri2 = await this.getFreshConnectionUri();
-        await this.connectionSharingService.executeSimpleQuery(ownerUri2, correctedCreate);
+        await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, correctedCreate);
         return true;
       }
       vscode.window.showWarningMessage(`DVW: Could not detect schema for ${remote}. Skipping creation of ${localFullName}.`);
@@ -354,9 +338,8 @@ WHERE name = '${dataSource}'`;
     const dropGuarded = `IF EXISTS (SELECT 1 FROM sys.external_tables et JOIN sys.schemas s ON et.schema_id = s.schema_id WHERE s.name = N'${schema}' AND et.name = N'${name}')\nBEGIN\n  DROP EXTERNAL TABLE [${schema}].[${name}];\nEND`;
     
     try {
-      const ownerUri = await this.getFreshConnectionUri();
       const query = `use ${this.selectedDatabase};\n${dropGuarded}`;
-      await this.connectionSharingService.executeSimpleQuery(ownerUri, query);
+      await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, query);
     } catch (e: any) {
       // ignore drop failures for DVW objects
       console.log(e.message);
@@ -381,23 +364,4 @@ WHERE name = '${dataSource}'`;
     return schemaSegment;
   }
 
-  private async getFreshConnectionUri(): Promise<string> {
-    if (!this.api || !this.connection || !this.connectionSharingService) {
-      throw new Error('getFreshConnectionUri: API/Connection/ConnectionSharingService not initialized');
-    }
-    
-    let uri = await this.api.connect(this.connection);
-    const connected = this.connectionSharingService.isConnected(uri);
-    if (!connected) {
-      const connId = await this.connectionSharingService.getActiveEditorConnectionId(this.extensionId);
-      if (connId) {
-        const sharedUri = await this.connectionSharingService.connect(this.extensionId, connId, this.selectedDatabase);
-        if (sharedUri) {
-          uri = sharedUri;
-        }
-      }
-    }
-    this.connectionUri = uri;
-    return uri;
-  }
 }

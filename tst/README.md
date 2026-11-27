@@ -2,6 +2,23 @@
 
 This folder provides test environments for the MSSQL Data Virtualization Wizard.
 
+## Automated Connection Tests
+
+Run `npm test` from the repository root with Node.js 18 or newer. This compiles the extension and runs focused tests with mocked VS Code and MSSQL APIs; no database or extension host is required.
+
+The tests cover authentication refresh, session-owned URIs, disconnect on success and failure, PolyBase error preservation, connection selection, cancellation, API compatibility, and selected database context.
+
+## Shared Connections Smoke Test
+
+Use an MSSQL extension build that exposes `getSharedConnectionsApi(1)` and launch this extension in a VS Code Extension Development Host:
+
+1. Run **Virtualize Data Wizard** without an active SQL editor and select a saved connection. Approve the VS Code authentication consent prompt.
+2. Select a database different from the profile's default, create a destination schema, and complete discovery and script generation for each provider configured below.
+3. Connect a SQL editor, change its current database, and run the wizard using **Use active editor connection**. Confirm that the current database is offered.
+4. Cancel the connection picker, confirming both exit and retry. Choose **New MSSQL connection**, save a profile in MSSQL, and rerun the wizard to select it.
+5. Revoke connection access from the Accounts menu and rerun the wizard. Verify that consent is requested again, and denying access does not run queries.
+6. Verify that temporary discovery tables are removed after a completed run and that no API retirement warning appears.
+
 ## Option 1: Local SQL Server Express (Recommended for Development)
 
 ### Prerequisites

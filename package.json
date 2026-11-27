@@ -22,7 +22,7 @@
     "external tables"
   ],
   "engines": {
-    "vscode": "^1.136.0"
+    "vscode": "^1.146.0"
   },
   "categories": [
     "Other"
@@ -39,12 +39,13 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "test": "npm run compile && node --test tst/sharedConnections.test.cjs",
     "watch": "tsc -watch -p ./",
     "package": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.136.0",
-    "@vscode/vsce": "^3.9.2",
+    "@types/vscode": "^1.146.0",
+    "@vscode/vsce": "^4.1.1",
     "typescript": "^7.0.2"
   },
   "extensionDependencies": [
