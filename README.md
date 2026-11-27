@@ -10,6 +10,7 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
+- 0.5.1: BugFix Oracle provider [#69](https://github.com/gadeynebram/mssql-datavirtualization/issues/69)
 - 0.5.0: Migrate to the authenticated MSSQL Shared Connections API v1 (`getSharedConnectionsApi(1)`), replacing retired connection APIs [#55](https://github.com/gadeynebram/mssql-datavirtualization/issues/55). Add support for IRIS InterSystems
  [#65](https://github.com/gadeynebram/mssql-datavirtualization/issues/55). Serval platform updates and update to VSCode 1.146.
 - 0.4.1: Maintenance release — dependency and compatibility updates (TypeScript 7.0.2, VS Code 1.136, @types/vscode 1.136, vscode-mssql v1.45.1), updated typings and npm audit fixes
