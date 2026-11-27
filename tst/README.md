@@ -124,6 +124,25 @@ After setting up the Data Federation infrastructure:
 
 13. Run [sqlserver/datafederation/8.VerifyOracleExternalTables.sql](sqlserver/datafederation/8.VerifyOracleExternalTables.sql) against your current connection to verify that you can access the remote AIRPLANE and FLIGHT tables.
 
+## InterSystems IRIS Manual Test
+
+The compose setup does not include IRIS. For a manual test, configure a SQL Server PolyBase ODBC external data source using an installed InterSystems IRIS ODBC driver and a valid `DATABASE` connection option, for example:
+
+```sql
+CREATE DATABASE SCOPED CREDENTIAL IRIS_CRED
+WITH IDENTITY = 'your-user', SECRET = 'your-password';
+
+CREATE EXTERNAL DATA SOURCE IRISDS
+WITH (
+   LOCATION = 'odbc://iris-host:1973',
+   CONNECTION_OPTIONS = 'Driver={InterSystems IRIS ODBC35};DATABASE=your-namespace;',
+   PUSHDOWN = ON,
+   CREDENTIAL = IRIS_CRED
+);
+```
+
+Run the wizard, select **InterSystems IRIS**, enter the namespace, and select the IRIS external data source. Verify that discovery finds the expected schemas and that a generated remote location follows `namespace.schema.table` (for example, `SomeSchema.SomeSchema.SomeTable`). Execute a generated script and query the resulting SQL Server external table. The ODBC driver, namespace, schema, credentials, and network access must be supplied by the test environment; this workflow is not part of the automated container tests.
+
 ## External Data Source Details
 
 The wizard discovers this external data source automatically:

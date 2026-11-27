@@ -1,7 +1,7 @@
 # MSSQL Data Virtualization Wizard
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.146.0%2B-blue)](https://code.visualstudio.com/)
-[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.47.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/mssql-v1.47.0)
+[![MSSQL Extension](https://img.shields.io/badge/MSSQL%20Extension-v1.48.0%2B-blue)](https://github.com/microsoft/vscode-mssql/releases/tag/mssql-v1.48.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This VS Code extension provides a step-by-step wizard to connect external SQL Server databases via PolyBase and automatically generate `CREATE EXTERNAL TABLE` statements.
@@ -10,7 +10,8 @@ This VS Code extension provides a step-by-step wizard to connect external SQL Se
 
 ## Changelog
 
-- 0.5.0: Migrate to the authenticated MSSQL Shared Connections API v1 (`getSharedConnectionsApi(1)`), replacing retired connection APIs ([#55](https://github.com/gadeynebram/mssql-datavirtualization/issues/55)).
+- 0.5.0: Migrate to the authenticated MSSQL Shared Connections API v1 (`getSharedConnectionsApi(1)`), replacing retired connection APIs [#55](https://github.com/gadeynebram/mssql-datavirtualization/issues/55). Add support for IRIS InterSystems
+ [#65](https://github.com/gadeynebram/mssql-datavirtualization/issues/55). Serval platform updates and update to VSCode 1.146.
 - 0.4.1: Maintenance release — dependency and compatibility updates (TypeScript 7.0.2, VS Code 1.136, @types/vscode 1.136, vscode-mssql v1.45.1), updated typings and npm audit fixes
 - 0.4.0: Improved SQL formatting — refactored `CREATE EXTERNAL TABLE` column definitions to display one column per line with proper indentation; dependency updates (VS Code 1.125, @types/vscode 1.125, vscode-mssql v1.43.0)
 - 0.3.3: Maintenance release — dependency updates (VS Code 1.120, @types/vscode 1.120, vscode-mssql typings v1.42.2)
@@ -27,7 +28,8 @@ The wizard executes the following steps:
 
 1. **Select Connection**: Choose a SQL Server database connection
 2. **Select Database**: Choose the target database where external tables will be created
-3. **Select Provider Type**: Choose SQL Server, MariaDB/MySQL, or Oracle discovery mode
+3. **Select Provider Type**: Choose SQL Server, MariaDB/MySQL, Oracle, or InterSystems IRIS discovery mode
+  - For IRIS, enter the namespace used as the first component of remote table locations
 4. **Select Destination Schema**: Choose the schema for created external tables (default: `dbo`)
 5. **Select External Data Source**: Choose an existing PolyBase external data source
 6. **Discover External Databases**: Select one or more external databases/schemas to connect to
@@ -82,8 +84,13 @@ Minimal recommended role: `db_owner` or custom role with the above permissions.
 - **SQL Server** external data sources via PolyBase (using `sqlserver://` location)
 - **MariaDB/MySQL** external data sources via PolyBase + ODBC (using `odbc://` location)
 - **Oracle** external data sources via PolyBase (using `oracle://` location, see [Oracle PolyBase configuration](https://learn.microsoft.com/en-us/sql/relational-databases/polybase/polybase-configure-oracle?view=sql-server-ver17))
+- **InterSystems IRIS** external data sources via PolyBase and the InterSystems ODBC driver (using `odbc://` location)
 
 Other PolyBase sources (Azure Blob Storage, Hadoop, etc.) are not supported at this time.
+
+### InterSystems IRIS Notes
+
+Install the InterSystems IRIS ODBC driver on the SQL Server PolyBase host and configure an ODBC external data source with the appropriate driver and `DATABASE` connection option. The wizard prompts for the IRIS namespace, discovers schemas through `INFORMATION_SCHEMA`, and generates remote locations in `namespace.schema.table` form. For example, the supplied working location `SomeSchema.SomeSchema.SomeTable` is generated when both the namespace and schema are `SomeSchema`. Confirm the namespace and schema parts against the target IRIS configuration before executing generated scripts.
 
 ### Oracle-Specific Notes
 
@@ -133,5 +140,9 @@ During the discovery process, the wizard creates temporary external tables (with
 - **For Oracle**:
   - `DVW_ALL_USERS_*`: For discovering available schemas/users
   - `DVW_*_ALL_TABLES_*`: For discovering tables in schemas
+
+- **For InterSystems IRIS**:
+  - `DVW_IRIS_SCHEMATA_*`: For discovering schemas in the selected namespace
+  - `DVW_IRIS_*_TABLES_*`: For discovering tables and views
 
 These tables are automatically removed at the end of the process. They are temporary and exist solely to support the discovery process.
