@@ -277,8 +277,22 @@ export class VirtualizationWizard implements vscode.Disposable {
       console.log('Initializing MariaDBSchemaProvider');
       this.provider = new MariaDBSchemaProvider(this.Connection);
     } else if (selectedProvider.value === 'oracle') {
+      const serviceName = await vscode.window.showInputBox({
+        prompt: 'Enter the Oracle service name used as the first part of the remote LOCATION',
+        placeHolder: 'ORCLPDB1',
+        ignoreFocusOut: true,
+        validateInput: (value: string) => /^[a-zA-Z0-9_.$#-]+$/.test(value.trim())
+          ? null
+          : 'Enter a service name containing only letters, numbers, dots, underscores, hyphens, $ and #'
+      });
+      if (!serviceName?.trim()) {
+        if (await this.confirmWizardCancellation()) {
+          return;
+        }
+        return this.InitializeProvider();
+      }
       console.log('Initializing OracleSchemaProvider');
-      this.provider = new OracleSchemaProvider(this.Connection);
+      this.provider = new OracleSchemaProvider(this.Connection, serviceName.trim());
     } else if (selectedProvider.value === 'iris') {
       const namespace = await vscode.window.showInputBox({
         prompt: 'Enter the InterSystems IRIS namespace used in the remote LOCATION',
@@ -505,7 +519,7 @@ SELECT COUNT(*) as cnt FROM sys.schemas WHERE name = N'${this.SelectedSchema}'`;
         // MariaDB: 'database.table' (lowercase, no schema layer)
         // MSSQL: '[database].[schema].[table]'
         const isMariaDB = this.provider instanceof MariaDBSchemaProvider;
-        const remote = this.provider instanceof IRISSchemaProvider
+        const remote = this.provider instanceof IRISSchemaProvider || this.provider instanceof OracleSchemaProvider
           ? this.provider.getRemoteLocation(item)
           : isMariaDB
           ? `${item.externalDb}.${item.name}` 

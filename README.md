@@ -29,6 +29,7 @@ The wizard executes the following steps:
 1. **Select Connection**: Choose a SQL Server database connection
 2. **Select Database**: Choose the target database where external tables will be created
 3. **Select Provider Type**: Choose SQL Server, MariaDB/MySQL, Oracle, or InterSystems IRIS discovery mode
+  - For Oracle, enter the service name used as the first component of remote table locations
   - For IRIS, enter the namespace used as the first component of remote table locations
 4. **Select Destination Schema**: Choose the schema for created external tables (default: `dbo`)
 5. **Select External Data Source**: Choose an existing PolyBase external data source
@@ -97,10 +98,11 @@ Install the InterSystems IRIS ODBC driver on the SQL Server PolyBase host and co
 When working with Oracle external data sources:
 
 - Use the built-in `oracle://` connection string format (e.g., `oracle://hostname:1521`)
-- In Oracle, a **schema** equals a **user**. The wizard discovers schemas by querying `ALL_USERS`
+- The wizard prompts for the Oracle **service name**. PolyBase uses it to connect, so it must be a service registered with the Oracle listener (for example `FREEPDB1` or `ORCLPDB1`). It is not the Oracle username. Query `SELECT SYS_CONTEXT('USERENV','SERVICE_NAME') FROM dual;` from a working Oracle session to find it
+- In Oracle, a **schema** equals a **user**. The wizard discovers schemas by querying `SYS.ALL_USERS`
 - System schemas (SYS, SYSTEM, etc.) are automatically filtered out
 - Oracle table names are typically uppercase (e.g., `AVIATION.AIRPLANE`)
-- The `LOCATION` in generated external tables uses the format: `SCHEMA.TABLE` (e.g., `AVIATION.AIRPLANE`)
+- The `LOCATION` in generated external tables uses the format: `[SERVICE_NAME].SCHEMA.TABLE` (e.g., `[FREE].AVIATION.AIRPLANE`)
 
 Example Oracle external data source creation:
 
