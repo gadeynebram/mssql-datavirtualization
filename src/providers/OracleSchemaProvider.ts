@@ -17,10 +17,11 @@ export class OracleSchemaProvider implements ISchemaProvider {
   private readonly connectionSharingService: SharedConnectionClient;
   private selectedDatabase: string | undefined;
   private discoveryTables: string[] = [];
-  private credentialIdentity: string | undefined;
+  private readonly serviceName: string;
 
-  constructor(connectionSharingService: SharedConnectionClient) {
+  constructor(connectionSharingService: SharedConnectionClient, serviceName: string) {
     this.connectionSharingService = connectionSharingService;
+    this.serviceName = serviceName;
   }
 
   async initialize(database: string): Promise<void> {
@@ -51,15 +52,11 @@ export class OracleSchemaProvider implements ISchemaProvider {
       throw new Error('listExternalDatabases: ConnectionSharingService is not set!');
     }
 
-    // Extract Oracle database name from the external data source location
-    await this.extractOracleDatabaseName(dataSource);
-
-    // Create DVW external table to ALL_USERS with 3-part name
     const suffix = new Date().getTime().toString();
     const localSchema = 'dbo';
     const localName = `DVW_ALL_USERS_${suffix}`;
     const localFullName = `[${localSchema}].[${localName}]`;
-    const remote = `${this.credentialIdentity}.SYS.ALL_USERS`;
+    const remote = this.buildRemoteLocation('SYS', 'ALL_USERS');
 
     await this.dropExternalTable(localSchema, localName);
     const created = await this.createExternalTableWithDetection(localFullName, remote, dataSource);
@@ -155,7 +152,7 @@ ORDER BY TABLE_NAME`;
     const tempName = nameHint ? `DVW_${nameHint}_${suffix}` : `DVW_probe_${suffix}`;
     const localFullName = `[${localSchema}].[${tempName}]`;
 
-    const dummyCreate = `use ${this.selectedDatabase};\nCREATE EXTERNAL TABLE ${localFullName}\n(\n    [NonExistingColumn] NVARCHAR(64) NULL\n)\nWITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`;
+    const dummyCreate = `use ${this.selectedDatabase};\nCREATE EXTERNAL TABLE ${localFullName}\n(\n    [NonExistingColumn] NVARCHAR(64) NULL\n)\nWITH (LOCATION = N'${this.escapeSqlLiteral(remote)}', DATA_SOURCE = [${dataSource}]);`;
     
     try {
       await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, dummyCreate);
@@ -170,8 +167,7 @@ ORDER BY TABLE_NAME`;
   }
 
   generateCreateScript(item: TableViewItem, detectedSchema: string, dataSource: string, localSchema?: string): string {
-    // Oracle: LOCATION = 'DATABASE.SCHEMA.TABLE' (3-part name required)
-    const remote = `${this.credentialIdentity}.${item.schema}.${item.name}`;
+    const remote = this.getRemoteLocation(item);
     const destSchema = localSchema || 'dbo';
     const localName = item.name;
     const localFullName = `[${destSchema}].[${localName}]`;
@@ -180,10 +176,25 @@ ORDER BY TABLE_NAME`;
     lines.push(`-- External ${item.type === 'U' ? 'Table' : 'View'}: ${item.schema}.${item.name}`);
     lines.push(`CREATE EXTERNAL TABLE ${localFullName}`);
     lines.push(this.formatSchemaColumns(detectedSchema));
-    lines.push(`WITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`);
+    lines.push(`WITH (LOCATION = N'${this.escapeSqlLiteral(remote)}', DATA_SOURCE = [${dataSource}]);`);
     lines.push('');
     
     return lines.join('\n');
+  }
+
+  /**
+   * Oracle PolyBase LOCATION format: [SERVICE_NAME].SCHEMA.OBJECT.
+   */
+  getRemoteLocation(item: TableViewItem): string {
+    return this.buildRemoteLocation(item.schema, item.name);
+  }
+
+  private buildRemoteLocation(schema: string, objectName: string): string {
+    return `[${this.serviceName.replace(/\]/g, ']]')}].${schema}.${objectName}`;
+  }
+
+  private escapeSqlLiteral(value: string): string {
+    return value.replace(/'/g, "''");
   }
 
   private formatSchemaColumns(schemaStr: string): string {
@@ -258,42 +269,9 @@ ORDER BY TABLE_NAME`;
   dispose(): void {
     this.selectedDatabase = undefined;
     this.discoveryTables = [];
-    this.credentialIdentity = undefined;
   }
 
   // Private helper methods
-
-  /**
-   * Prompt user for Oracle database/PDB name.
-   * This is required for the 3-part LOCATION format (DATABASE.SCHEMA.TABLE).
-   * Note: The external data source LOCATION (oracle://host:port) does NOT contain 
-   * the database name per Microsoft documentation.
-   */
-  private async extractOracleDatabaseName(dataSource: string): Promise<void> {
-    if (!this.connectionSharingService) {
-      throw new Error('extractOracleDatabaseName: ConnectionSharingService is not set!');
-    }
-
-    // Query for the credential identity associated with this external data source
-    const credentialQuery = `use ${this.selectedDatabase}; 
-select dsc.credential_identity
-from sys.external_data_sources ds
-join sys.database_scoped_credentials dsc on dsc.credential_id = ds.credential_id
-where ds.name = '${dataSource}'`;
-    
-    const credResult = await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, credentialQuery);
-    
-    if (credResult.rows && credResult.rows.length > 0) {
-      this.credentialIdentity = credResult.rows[0][0].displayValue;
-    }
-
-    // Add VSCode notification reporting the credential identity (Oracle user) being used for schema discovery
-    if (this.credentialIdentity) {
-      vscode.window.showInformationMessage(`DVW: Using credential identity '${this.credentialIdentity}' for Oracle schema discovery.`);
-    } else {
-      vscode.window.showWarningMessage(`DVW: Could not determine credential identity for data source '${dataSource}'. Schema discovery may fail.`);
-    }
-  }
 
   private async createDVWDiscoveryTables(externalSchemaName: string, dataSource: string): Promise<void> {
     if (!this.connectionSharingService) {
@@ -310,7 +288,7 @@ where ds.name = '${dataSource}'`;
     // For each schema, create external table to ALL_TABLES with 3-part name
     const localName = `DVW_${safeDbName}_ALL_TABLES_${suffix}`;
     const localFullName = `[${localSchema}].[${localName}]`;
-    const remote = `${this.credentialIdentity}.SYS.ALL_TABLES`;
+    const remote = this.buildRemoteLocation('SYS', 'ALL_TABLES');
 
     await this.dropExternalTable(localSchema, localName);
     const created = await this.createExternalTableWithDetection(localFullName, remote, dataSource);
@@ -324,7 +302,7 @@ where ds.name = '${dataSource}'`;
       throw new Error('createExternalTableWithDetection: ConnectionSharingService not initialized');
     }
     
-    const dummyCreate = `use ${this.selectedDatabase};\nCREATE EXTERNAL TABLE ${localFullName}\n(\n    [NonExistingColumn] NVARCHAR(64) NULL\n)\nWITH (LOCATION = N'${remote}', DATA_SOURCE = [${dataSource}]);`;
+    const dummyCreate = `use ${this.selectedDatabase};\nCREATE EXTERNAL TABLE ${localFullName}\n(\n    [NonExistingColumn] NVARCHAR(64) NULL\n)\nWITH (LOCATION = N'${this.escapeSqlLiteral(remote)}', DATA_SOURCE = [${dataSource}]);`;
     
     try {
       await this.connectionSharingService.executeSimpleQuery(this.selectedDatabase, dummyCreate);

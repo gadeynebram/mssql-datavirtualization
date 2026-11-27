@@ -120,7 +120,7 @@ After setting up the Data Federation infrastructure:
 
 11. Run [sqlserver/datafederation/7.CreateOracleExtConnection.sql](sqlserver/datafederation/7.CreateOracleExtConnection.sql) against your current connection.
 
-12. Repeat steps 3-6 but now with provider Oracle and destination schema name Aviation
+12. Repeat steps 3-6 but now with provider Oracle, Oracle service name **FREE**, and destination schema name Aviation
 
 13. Run [sqlserver/datafederation/8.VerifyOracleExternalTables.sql](sqlserver/datafederation/8.VerifyOracleExternalTables.sql) against your current connection to verify that you can access the remote AIRPLANE and FLIGHT tables.
 

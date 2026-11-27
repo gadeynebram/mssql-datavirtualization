@@ -115,10 +115,19 @@ function createWizardFixture({ active = false, profiles = [], pick, confirmation
   };
   const commands = [];
   const irisProviders = [];
+  const oracleProviders = [];
   class FakeIRISSchemaProvider {
     constructor(connection, namespace) {
       const instance = { connection, namespace, database: undefined };
       irisProviders.push(instance);
+      this.instance = instance;
+    }
+    async initialize(database) { this.instance.database = database; }
+  }
+  class FakeOracleSchemaProvider {
+    constructor(connection, serviceName) {
+      const instance = { connection, serviceName, database: undefined };
+      oracleProviders.push(instance);
       this.instance = instance;
     }
     async initialize(database) { this.instance.database = database; }
@@ -142,10 +151,10 @@ function createWizardFixture({ active = false, profiles = [], pick, confirmation
     './SharedConnectionClient': { SharedConnectionClient: clientFixture.SharedConnectionClient },
     './providers/MSSQLSchemaProvider': {},
     './providers/MariaDBSchemaProvider': {},
-    './providers/OracleSchemaProvider': {},
+    './providers/OracleSchemaProvider': { OracleSchemaProvider: FakeOracleSchemaProvider },
     './providers/IRISSchemaProvider': { IRISSchemaProvider: FakeIRISSchemaProvider }
   });
-  return { wizard: new VirtualizationWizard(), vscode, api, commands, irisProviders };
+  return { wizard: new VirtualizationWizard(), vscode, api, commands, irisProviders, oracleProviders };
 }
 
 test('wizard obtains API v1 and can select a saved connection without an editor', async () => {
@@ -220,6 +229,47 @@ test('wizard returns to provider selection when the IRIS namespace prompt is can
   wizard.SelectedDatabase = 'DataFederation';
   await wizard.InitializeProvider();
   assert.equal(irisProviders.length, 0);
+});
+
+test('wizard prompts for the Oracle service name and initializes the selected provider', async () => {
+  const { wizard, oracleProviders } = createWizardFixture({
+    pick: items => items.find(item => item.value === 'oracle'),
+    namespaceInput: ' FACPPROD '
+  });
+  wizard.API = {};
+  wizard.Connection = {};
+  wizard.SelectedDatabase = 'DataFederation';
+  await wizard.InitializeProvider();
+  assert.deepEqual(oracleProviders.map(({ serviceName, database }) => ({ serviceName, database })), [
+    { serviceName: 'FACPPROD', database: 'DataFederation' }
+  ]);
+});
+
+test('Oracle provider uses the service name in discovery and generated LOCATION values', async () => {
+  const queries = [];
+  const client = {
+    executeSimpleQuery: async (database, query) => {
+      queries.push(query);
+      if (query.includes('NonExistingColumn')) {
+        throw new Error('The detected external table schema is: ([USERNAME] NVARCHAR(128) NOT NULL).');
+      }
+      if (query.includes('SELECT USERNAME')) {
+        return { rows: [[{ displayValue: 'GROEI' }]] };
+      }
+      return { rows: [] };
+    }
+  };
+  const { OracleSchemaProvider } = loadModule('providers/OracleSchemaProvider.js', {});
+  const provider = new OracleSchemaProvider(client, 'FACPPROD');
+  await provider.initialize('DataFederation');
+
+  assert.deepEqual(await provider.listExternalDatabases('GROEI_DS'), ['GROEI']);
+  assert.ok(queries.some(query => query.includes("LOCATION = N'[FACPPROD].SYS.ALL_USERS'")));
+  assert.ok(!queries.some(query => query.includes('credential_identity')));
+
+  const item = { externalDb: 'GROEI', schema: 'GROEI', name: 'PATIENT', type: 'U', displayLabel: '' };
+  assert.equal(provider.getRemoteLocation(item), '[FACPPROD].GROEI.PATIENT');
+  assert.match(provider.generateCreateScript(item, '([ID] INT)', 'GROEI_DS'), /LOCATION = N'\[FACPPROD\]\.GROEI\.PATIENT'/);
 });
 
 for (const providerName of ['MSSQLSchemaProvider', 'MariaDBSchemaProvider', 'OracleSchemaProvider']) {
