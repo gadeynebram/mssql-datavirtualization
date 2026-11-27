@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@types/vscode": "^1.146.0",
-    "@vscode/vsce": "^3.9.2",
+    "@vscode/vsce": "^4.1.1",
     "typescript": "^7.0.2"
   },
   "extensionDependencies": [
